@@ -10,38 +10,38 @@
     path: "{{ item }}"
     state: directory
     mode: "0750"
-    owner: "{{ yourls_uid }}"
-    group: "{{ yourls_gid }}"
+    owner: "{{ anonymousoverflow_uid }}"
+    group: "{{ anonymousoverflow_gid }}"
   with_items:
-    - "{{ yourls_base_path }}"
+    - "{{ anonymousoverflow_base_path }}"
 
 - name: Ensure AnonymousOverflow support files installed
   ansible.builtin.template:
     src: "{{ role_path }}/templates/{{ item }}.j2"
-    dest: "{{ yourls_base_path }}/{{ item }}"
+    dest: "{{ anonymousoverflow_base_path }}/{{ item }}"
     mode: "0640"
-    owner: "{{ yourls_uid }}"
-    group: "{{ yourls_gid }}"
+    owner: "{{ anonymousoverflow_uid }}"
+    group: "{{ anonymousoverflow_gid }}"
   with_items:
     - env
     - labels
 
 - name: Ensure AnonymousOverflow container image is pulled
   community.docker.docker_image:
-    name: "{{ yourls_container_image }}"
+    name: "{{ anonymousoverflow_container_image }}"
     source: "{{ 'pull' if ansible_version.major > 2 or ansible_version.minor > 7 else omit }}"
-    force_source: "{{ yourls_container_image_force_pull if ansible_version.major > 2 or ansible_version.minor >= 8 else omit }}"
-    force: "{{ omit if ansible_version.major > 2 or ansible_version.minor >= 8 else yourls_container_image_force_pull }}"
+    force_source: "{{ anonymousoverflow_container_image_force_pull if ansible_version.major > 2 or ansible_version.minor >= 8 else omit }}"
+    force: "{{ omit if ansible_version.major > 2 or ansible_version.minor >= 8 else anonymousoverflow_container_image_force_pull }}"
 
 - name: Ensure AnonymousOverflow container network is created
   community.general.docker_network:
     enable_ipv6: "{{ devture_systemd_docker_base_ipv6_enabled }}"
-    name: "{{ yourls_container_network }}"
+    name: "{{ anonymousoverflow_container_network }}"
     driver: bridge
     driver_options: "{{ devture_systemd_docker_base_container_networks_driver_options }}"
 
 - name: Ensure AnonymousOverflow systemd service is present
   ansible.builtin.template:
     src: "{{ role_path }}/templates/systemd/anonymousoverflow.service.j2"
-    dest: "{{ devture_systemd_docker_base_systemd_path }}/{{ yourls_identifier }}.service"
+    dest: "{{ devture_systemd_docker_base_systemd_path }}/{{ anonymousoverflow_identifier }}.service"
     mode: "0644"

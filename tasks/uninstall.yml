@@ -7,24 +7,24 @@
 
 - name: Check existence of AnonymousOverflow systemd service
   ansible.builtin.stat:
-    path: "{{ devture_systemd_docker_base_systemd_path }}/{{ yourls_identifier }}.service"
-  register: yourls_service_stat
+    path: "{{ devture_systemd_docker_base_systemd_path }}/{{ anonymousoverflow_identifier }}.service"
+  register: anonymousoverflow_service_stat
 
-- when: yourls_service_stat.stat.exists | bool
+- when: anonymousoverflow_service_stat.stat.exists | bool
   block:
     - name: Ensure AnonymousOverflow systemd service is stopped
       ansible.builtin.service:
-        name: "{{ yourls_identifier }}"
+        name: "{{ anonymousoverflow_identifier }}"
         state: stopped
         enabled: false
         daemon_reload: true
 
     - name: Ensure AnonymousOverflow systemd service doesn't exist
       ansible.builtin.file:
-        path: "{{ devture_systemd_docker_base_systemd_path }}/{{ yourls_identifier }}.service"
+        path: "{{ devture_systemd_docker_base_systemd_path }}/{{ anonymousoverflow_identifier }}.service"
         state: absent
 
     - name: Ensure AnonymousOverflow base directory doesn't exist
       ansible.builtin.file:
-        path: "{{ yourls_base_path }}"
+        path: "{{ anonymousoverflow_base_path }}"
         state: absent

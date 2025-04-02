@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # AnonymousOverflow Ansible role
 
-This is an [Ansible](https://www.ansible.com/) role which installs [AnonymousOverflow](https://yourls.org) to run as a [Docker](https://www.docker.com/) container wrapped in a systemd service.
+This is an [Ansible](https://www.ansible.com/) role which installs [AnonymousOverflow](https://anonymousoverflow.org) to run as a [Docker](https://www.docker.com/) container wrapped in a systemd service.
 
 This role *implicitly* depends on:
 
@@ -16,4 +16,4 @@ This role *implicitly* depends on:
 
 Check [defaults/main.yml](defaults/main.yml) for the full list of supported options.
 
-💡 See this [document](docs/configuring-yourls.md) for details about setting up the service with this role.
+💡 See this [document](docs/configuring-anonymousoverflow.md) for details about setting up the service with this role.
