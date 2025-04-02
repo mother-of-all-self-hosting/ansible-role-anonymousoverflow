@@ -16,17 +16,17 @@ SPDX-FileCopyrightText: 2024 - 2025 Suguru Hirahara
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-# Setting up YOURLS
+# Setting up AnonymousOverflow
 
-This is an [Ansible](https://www.ansible.com/) role which installs [YOURLS](https://yourls.org) to run as a [Docker](https://www.docker.com/) container wrapped in a systemd service.
+This is an [Ansible](https://www.ansible.com/) role which installs [AnonymousOverflow](https://yourls.org) to run as a [Docker](https://www.docker.com/) container wrapped in a systemd service.
 
-YOURLS is a set of PHP scripts that will allow you to run Your Own URL Shortener, on your server.
+AnonymousOverflow is a set of PHP scripts that will allow you to run Your Own URL Shortener, on your server.
 
-See the project's [documentation](https://yourls.org/docs) to learn what YOURLS does and why it might be useful to you.
+See the project's [documentation](https://yourls.org/docs) to learn what AnonymousOverflow does and why it might be useful to you.
 
 ## Prerequisites
 
-To run a YOURLS instance it is necessary to prepare a [MySQL](https://www.mysql.com/) compatible database server.
+To run a AnonymousOverflow instance it is necessary to prepare a [MySQL](https://www.mysql.com/) compatible database server.
 
 If you are looking for an Ansible role for [MariaDB](https://mariadb.org/), you can check out [this role (ansible-role-mariadb)](https://github.com/mother-of-all-self-hosting/ansible-role-mariadb) maintained by the [Mother-of-All-Self-Hosting (MASH)](https://github.com/mother-of-all-self-hosting) team.
 
@@ -34,7 +34,7 @@ See [here](https://yourls.org/docs#server-requirements) on the official document
 
 ## Adjusting the playbook configuration
 
-To enable YOURLS with this role, add the following configuration to your `vars.yml` file.
+To enable AnonymousOverflow with this role, add the following configuration to your `vars.yml` file.
 
 **Note**: the path should be something like `inventory/host_vars/mash.example.com/vars.yml` if you use the [MASH Ansible playbook](https://github.com/mother-of-all-self-hosting/mash-playbook).
 
@@ -56,7 +56,7 @@ yourls_enabled: true
 
 ### Set the hostname
 
-To enable YOURLS you need to set the hostname as well. To do so, add the following configuration to your `vars.yml` file. Make sure to replace `example.com` with your own value.
+To enable AnonymousOverflow you need to set the hostname as well. To do so, add the following configuration to your `vars.yml` file. Make sure to replace `example.com` with your own value.
 
 ```yaml
 yourls_hostname: "example.com"
@@ -64,7 +64,7 @@ yourls_hostname: "example.com"
 
 After adjusting the hostname, make sure to adjust your DNS records to point the domain to your server.
 
-**Note**: hosting YOURLS under a subpath (by configuring the `yourls_path_prefix` variable) does not seem to be possible due to YOURLS's technical limitations.
+**Note**: hosting AnonymousOverflow under a subpath (by configuring the `yourls_path_prefix` variable) does not seem to be possible due to AnonymousOverflow's technical limitations.
 
 ### Set the admin username and password
 
@@ -83,7 +83,7 @@ Take a look at:
 
 - [`defaults/main.yml`](../defaults/main.yml) for some variables that you can customize via your `vars.yml` file. You can override settings (even those that don't have dedicated playbook variables) using the `yourls_environment_variables_additional_variables` variable
 
-For a complete list of YOURLS's config options that you could put in `yourls_environment_variables_additional_variables`, see its [environment variables](https://yourls.org/docs/guide/essentials/configuration).
+For a complete list of AnonymousOverflow's config options that you could put in `yourls_environment_variables_additional_variables`, see its [environment variables](https://yourls.org/docs/guide/essentials/configuration).
 
 ## Installing
 
@@ -97,9 +97,9 @@ If you use the MASH playbook, the shortcut commands with the [`just` program](ht
 
 ## Usage
 
-After running the command for installation, YOURLS's admin UI is available at the specified hostname with `/admin/` such as `example.com/admin/`.
+After running the command for installation, AnonymousOverflow's admin UI is available at the specified hostname with `/admin/` such as `example.com/admin/`.
 
-First, open the page with a web browser to complete installation on the server by clicking "Install YOURLS" button. After that, click the anchor link "YOURLS Administration Page" to log in with the username (`yourls_environment_variable_user`) and password (`yourls_environment_variable_pass`).
+First, open the page with a web browser to complete installation on the server by clicking "Install AnonymousOverflow" button. After that, click the anchor link "AnonymousOverflow Administration Page" to log in with the username (`yourls_environment_variable_user`) and password (`yourls_environment_variable_pass`).
 
 The help file is available at `example.com/readme.html`.
 

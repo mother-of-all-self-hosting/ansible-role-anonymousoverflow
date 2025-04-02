@@ -3,7 +3,7 @@ galaxy_info:
   company: progressiv
   role_name: yourls
   namespace: progressiv
-  description: YOURLS
+  description: AnonymousOverflow
   platforms:
     - name: Debian
       versions:
