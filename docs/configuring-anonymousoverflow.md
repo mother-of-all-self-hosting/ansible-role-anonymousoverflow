@@ -24,6 +24,8 @@ AnonymousOverflow allows you to view StackOverflow threads without exposing your
 
 See the project's [documentation](https://github.com/httpjamesm/AnonymousOverflow/blob/main/README.md) to learn what AnonymousOverflow does and why it might be useful to you.
 
+[<img src="assets/home_dark.webp" title="Home screen in dark mode" width="600">](assets/home_dark.webp) [<img src="assets/question_dark.webp" title="Question in dark mode" width="600">](assets/question_dark.webp) [<img src="assets/answers_light.webp" title="Answer in light mode" width="600">](assets/answers_light.webp)
+
 ## Adjusting the playbook configuration
 
 To enable AnonymousOverflow with this role, add the following configuration to your `vars.yml` file.
