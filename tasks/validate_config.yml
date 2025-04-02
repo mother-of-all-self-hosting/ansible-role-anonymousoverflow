@@ -16,9 +16,6 @@
     - anonymousoverflow_hostname
     - anonymousoverflow_path_prefix
     - anonymousoverflow_container_network
-    - anonymousoverflow_environment_variable_user
-    - anonymousoverflow_environment_variable_pass
-    - anonymousoverflow_environment_variable_cookiekey
 
 - when: anonymousoverflow_container_labels_traefik_enabled | bool
   block:

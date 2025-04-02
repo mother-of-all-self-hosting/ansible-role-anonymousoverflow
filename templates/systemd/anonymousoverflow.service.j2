@@ -24,20 +24,13 @@ Environment="HOME={{ devture_systemd_docker_base_systemd_unit_home_path }}"
 ExecStartPre=-{{ devture_systemd_docker_base_host_command_sh }} -c '{{ devture_systemd_docker_base_host_command_docker }} stop -t {{ devture_systemd_docker_base_container_stop_grace_time_seconds }} {{ anonymousoverflow_identifier }} 2>/dev/null || true'
 ExecStartPre=-{{ devture_systemd_docker_base_host_command_sh }} -c '{{ devture_systemd_docker_base_host_command_docker }} rm {{ anonymousoverflow_identifier }} 2>/dev/null || true'
 
-{#
-  Root access with write permission is required for extracting tarball and
-  changing file mode. See: https://github.com/AnonymousOverflow/containers/blob/main/images/anonymousoverflow/Dockerfile.template
-#}
 ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} create \
       --rm \
       --name={{ anonymousoverflow_identifier }} \
       --log-driver=none \
+      --user={{ anonymousoverflow_uid }}:{{ anonymousoverflow_gid }} \
       --cap-drop=ALL \
-      --cap-add=CHOWN \
-      --cap-add=DAC_OVERRIDE \
-      --cap-add=FOWNER \
-      --cap-add=SETGID \
-      --cap-add=SETUID \
+      --read-only \
       --network={{ anonymousoverflow_container_network }} \
       {% if anonymousoverflow_container_http_host_bind_port %}
       -p {{ anonymousoverflow_container_http_host_bind_port }}:{{ anonymousoverflow_container_http_port }} \

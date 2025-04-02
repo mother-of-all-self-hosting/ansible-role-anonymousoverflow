@@ -7,34 +7,41 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 ---
-# Project source code URL: https://github.com/AnonymousOverflow/AnonymousOverflow
+# Project source code URL: https://github.com/httpjamesm/AnonymousOverflow
 
 anonymousoverflow_enabled: true
 
 anonymousoverflow_identifier: anonymousoverflow
 anonymousoverflow_base_path: "{{ anonymousoverflow_identifier }}"
 
-# renovate: datasource=docker depName=anonymousoverflow versioning=semver
-anonymousoverflow_version: 1.9.2
+# Only "release" tag is available
+anonymousoverflow_version: release
 
 anonymousoverflow_uid: ''
 anonymousoverflow_gid: ''
 
+# Specify URI scheme for anonymousoverflow_base_url.
+anonymousoverflow_scheme: https
+
 # The hostname at which AnonymousOverflow is served.
 anonymousoverflow_hostname: ''
 
-# Specify URI scheme for anonymousoverflow_environment_variable_site.
-anonymousoverflow_scheme: https
-
 # The path at which AnonymousOverflow is exposed.
 # This value must either be `/` or not end with a slash (e.g. `/anonymousoverflow`).
+#
+# Hosting AnonymousOverflow under a subpath does not seem to be possible due to AnonymousOverflow's
+# technical limitations.
 anonymousoverflow_path_prefix: /
 
-anonymousoverflow_container_image: "{{ anonymousoverflow_container_image_registry_prefix }}anonymousoverflow:{{ anonymousoverflow_container_image_tag }}"
+# Public facing base URL of the AnonymousOverflow service.
+# It should not end with a slash.
+anonymousoverflow_base_url: "{{ anonymousoverflow_scheme }}://{{ anonymousoverflow_hostname }}{{ '' if anonymousoverflow_path_prefix == '/' else anonymousoverflow_path_prefix }}"
+
+anonymousoverflow_container_image: "{{ anonymousoverflow_container_image_registry_prefix }}httpjamesm/anonymousoverflow:{{ anonymousoverflow_container_image_tag }}"
 anonymousoverflow_container_image_tag: "{{ anonymousoverflow_version }}"
 anonymousoverflow_container_image_registry_prefix: "{{ anonymousoverflow_container_image_registry_prefix_upstream }}"
 anonymousoverflow_container_image_registry_prefix_upstream: "{{ anonymousoverflow_container_image_registry_prefix_upstream_default }}"
-anonymousoverflow_container_image_registry_prefix_upstream_default: docker.io/
+anonymousoverflow_container_image_registry_prefix_upstream_default: ghcr.io/
 anonymousoverflow_container_image_force_pull: "{{ anonymousoverflow_container_image.endswith(':latest') }}"
 
 # Controls whether the container exposes its HTTP port (tcp/80 in the container).
@@ -46,7 +53,7 @@ anonymousoverflow_container_http_host_bind_port: ''
 anonymousoverflow_container_network: "{{ anonymousoverflow_identifier }}"
 
 # The port number in the container
-anonymousoverflow_container_http_port: 80
+anonymousoverflow_container_http_port: 8080
 
 # A list of additional container networks that the container would be connected to.
 # The role does not create these networks, so make sure they already exist.
@@ -159,37 +166,8 @@ anonymousoverflow_systemd_required_services_list_custom: []
 # List of systemd services that the AnonymousOverflow systemd service wants
 anonymousoverflow_systemd_wanted_services_list: []
 
-# env.j2: General configuration
-anonymousoverflow_environment_variable_user: ''
-anonymousoverflow_environment_variable_pass: ''
-
-# env.j2: MySQL settings
-#
-# MySQL settings
-anonymousoverflow_environment_variable_db_user: joe
-anonymousoverflow_environment_variable_db_pass: MySeCreTPaSsW0rd
-anonymousoverflow_environment_variable_db_name: anonymousoverflow
-anonymousoverflow_environment_variable_db_host_name: localhost
-anonymousoverflow_environment_variable_db_host_port: 3306
-anonymousoverflow_environment_variable_db_prefix: anonymousoverflow_
-
-# env.j2: Site options
-#
-anonymousoverflow_environment_variable_site: "{{ anonymousoverflow_scheme }}://{{ anonymousoverflow_hostname }}"
-anonymousoverflow_environment_variable_private: true
-anonymousoverflow_environment_variable_unique_urls: true
-anonymousoverflow_environment_variable_cookiekey: ''
-
-# env.j2: URL Shortening settings
-#
-anonymousoverflow_environment_variable_url_convert: 36
-
-# env.j2: Optional settings
-#
-anonymousoverflow_environment_variable_private_infos: true
-anonymousoverflow_environment_variable_private_api: true
-anonymousoverflow_environment_variable_nostats: false
+anonymousoverflow_environment_variable_app_url: "{{ anonymousoverflow_base_url }}"
+anonymousoverflow_environment_variable_jwt_signing_secret: 'secret'
 
 # Additional environment variables.
-# See: https://anonymousoverflow.org/docs/guide/essentials/configuration#url-shortening-settings
 anonymousoverflow_environment_variables_additional_variables: ''
