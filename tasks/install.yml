@@ -42,6 +42,6 @@
 
 - name: Ensure YOURLS systemd service is present
   ansible.builtin.template:
-    src: "{{ role_path }}/templates/systemd/yourls.service.j2"
+    src: "{{ role_path }}/templates/systemd/anonymousoverflow.service.j2"
     dest: "{{ devture_systemd_docker_base_systemd_path }}/{{ yourls_identifier }}.service"
     mode: "0644"
