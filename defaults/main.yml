@@ -12,7 +12,7 @@
 anonymousoverflow_enabled: true
 
 anonymousoverflow_identifier: anonymousoverflow
-anonymousoverflow_base_path: "{{ anonymousoverflow_identifier }}"
+anonymousoverflow_base_path: "/{{ anonymousoverflow_identifier }}"
 
 # Only "release" tag is available
 anonymousoverflow_version: release
