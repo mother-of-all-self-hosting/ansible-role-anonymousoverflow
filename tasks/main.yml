@@ -4,27 +4,25 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 ---
-
 - name: Perform AnonymousOverflow installation tasks
-  block:
-    - name: Validate AnonymousOverflow configuration
-      when: anonymousoverflow_enabled | bool
-      ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate_config.yml"
-
-    - name: Install AnonymousOverflow
-      when: anonymousoverflow_enabled | bool
-      ansible.builtin.include_tasks: "{{ role_path }}/tasks/install.yml"
   tags:
     - setup-all
     - setup-anonymousoverflow
     - install-all
     - install-anonymousoverflow
+  block:
+    - name: Validate AnonymousOverflow configuration
+      when: anonymousoverflow_enabled | bool
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate_config.yml"
+    - name: Install AnonymousOverflow
+      when: anonymousoverflow_enabled | bool
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/install.yml"
 
 - name: Perform AnonymousOverflow uninstallation tasks
+  tags:
+    - setup-all
+    - setup-anonymousoverflow
   block:
     - name: Uninstall AnonymousOverflow
       when: not anonymousoverflow_enabled | bool
       ansible.builtin.include_tasks: "{{ role_path }}/tasks/uninstall.yml"
-  tags:
-    - setup-all
-    - setup-anonymousoverflow

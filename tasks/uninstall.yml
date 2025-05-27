@@ -4,13 +4,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 ---
-
 - name: Check existence of AnonymousOverflow systemd service
   ansible.builtin.stat:
     path: "{{ devture_systemd_docker_base_systemd_path }}/{{ anonymousoverflow_identifier }}.service"
   register: anonymousoverflow_service_stat
 
-- when: anonymousoverflow_service_stat.stat.exists | bool
+- name: Uninstall AnonymousOverflow systemd services and files
+  when: anonymousoverflow_service_stat.stat.exists | bool
   block:
     - name: Ensure AnonymousOverflow systemd service is stopped
       ansible.builtin.service:
