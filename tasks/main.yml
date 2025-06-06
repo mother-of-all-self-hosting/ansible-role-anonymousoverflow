@@ -5,6 +5,7 @@
 
 ---
 - name: Perform AnonymousOverflow installation tasks
+  when: anonymousoverflow_enabled | bool
   tags:
     - setup-all
     - setup-anonymousoverflow
@@ -12,17 +13,15 @@
     - install-anonymousoverflow
   block:
     - name: Validate AnonymousOverflow configuration
-      when: anonymousoverflow_enabled | bool
       ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate_config.yml"
     - name: Install AnonymousOverflow
-      when: anonymousoverflow_enabled | bool
       ansible.builtin.include_tasks: "{{ role_path }}/tasks/install.yml"
 
 - name: Perform AnonymousOverflow uninstallation tasks
+  when: not anonymousoverflow_enabled | bool
   tags:
     - setup-all
     - setup-anonymousoverflow
   block:
     - name: Uninstall AnonymousOverflow
-      when: not anonymousoverflow_enabled | bool
       ansible.builtin.include_tasks: "{{ role_path }}/tasks/uninstall.yml"
