@@ -45,7 +45,7 @@ anonymousoverflow_container_image_registry_prefix_upstream_default: ghcr.io/
 anonymousoverflow_container_image_force_pull: "{{ anonymousoverflow_container_image.endswith(':latest') }}"
 
 anonymousoverflow_container_image_self_build: false
-anonymousoverflow_container_image_name: "httpjamesm/anonymousoverflow:{{ anonymousoverflow_container_image_tag }}"
+anonymousoverflow_container_image_name: "httpjamesm/anonymousoverflow:{{ anonymousoverflow_container_repo_version }}"
 anonymousoverflow_container_repo: "https://github.com/httpjamesm/AnonymousOverflow.git"
 anonymousoverflow_container_repo_version: "{{ anonymousoverflow_version if anonymousoverflow_version != 'latest' else 'main' }}"
 anonymousoverflow_container_src_files_path: "{{ anonymousoverflow_base_path }}/docker-src"
