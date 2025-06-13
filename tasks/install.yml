@@ -55,21 +55,21 @@
   block:
     - name: Ensure AnonymousOverflow repository is present on self-build
       ansible.builtin.git:
-        repo: "{{ anonymousoverflow_container_repo }}"
-        version: "{{ anonymousoverflow_container_repo_version }}"
-        dest: "{{ anonymousoverflow_container_src_files_path }}"
+        repo: "{{ anonymousoverflow_container_image_self_build_repo }}"
+        version: "{{ anonymousoverflow_container_image_self_build_repo_version }}"
+        dest: "{{ anonymousoverflow_container_image_self_build_src_files_path }}"
         force: "yes"
       register: anonymousoverflow_git_pull_results
 
     - name: Ensure AnonymousOverflow container image is built
       community.docker.docker_image:
-        name: "{{ anonymousoverflow_container_image_name }}"
+        name: "{{ anonymousoverflow_container_image_self_build_name }}"
         source: build
         force_source: "{{ anonymousoverflow_git_pull_results.changed if ansible_version.major > 2 or ansible_version.minor >= 8 else omit }}"
         force: "{{ omit if ansible_version.major > 2 or ansible_version.minor >= 8 else anonymousoverflow_git_pull_results.changed }}"
         build:
           dockerfile: Dockerfile
-          path: "{{ anonymousoverflow_container_src_files_path }}"
+          path: "{{ anonymousoverflow_container_image_self_build_src_files_path }}"
           pull: true
           args:
 
