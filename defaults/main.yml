@@ -178,7 +178,10 @@ anonymousoverflow_systemd_required_services_list_auto: []
 anonymousoverflow_systemd_required_services_list_custom: []
 
 # List of systemd services that the AnonymousOverflow systemd service wants
-anonymousoverflow_systemd_wanted_services_list: []
+anonymousoverflow_systemd_wanted_services_list: "{{ anonymousoverflow_systemd_wanted_services_list_default + anonymousoverflow_systemd_wanted_services_list_auto + anonymousoverflow_systemd_wanted_services_list_custom }}"
+anonymousoverflow_systemd_wanted_services_list_default: []
+anonymousoverflow_systemd_wanted_services_list_auto: []
+anonymousoverflow_systemd_wanted_services_list_custom: []
 
 anonymousoverflow_environment_variable_app_url: "{{ anonymousoverflow_base_url }}"
 anonymousoverflow_environment_variable_jwt_signing_secret: 'secret'
