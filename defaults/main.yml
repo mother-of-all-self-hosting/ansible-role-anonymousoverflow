@@ -107,7 +107,7 @@ anonymousoverflow_container_labels_traefik_additional_response_headers_auto: |
     | combine ({'X-XSS-Protection': anonymousoverflow_http_header_xss_protection} if anonymousoverflow_http_header_xss_protection else {})
     | combine ({'X-Content-Type-Options': anonymousoverflow_http_header_content_type_options} if anonymousoverflow_http_header_content_type_options else {})
     | combine ({'Content-Security-Policy': anonymousoverflow_http_header_content_security_policy} if anonymousoverflow_http_header_content_security_policy else {})
-    | combine ({'Permission-Policy': anonymousoverflow_http_header_content_permission_policy} if anonymousoverflow_http_header_content_permission_policy else {})
+    | combine ({'Permissions-Policy': anonymousoverflow_http_header_permissions_policy} if anonymousoverflow_http_header_permissions_policy else {})
     | combine ({'Strict-Transport-Security': anonymousoverflow_http_header_strict_transport_security} if anonymousoverflow_http_header_strict_transport_security and anonymousoverflow_container_labels_traefik_tls else {})
   }}
 anonymousoverflow_container_labels_traefik_additional_response_headers_custom: {}
@@ -140,9 +140,9 @@ anonymousoverflow_http_header_content_type_options: nosniff
 # See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy
 anonymousoverflow_http_header_content_security_policy: frame-ancestors 'self'
 
-# Specifies the value of the `Permission-Policy` header.
-# See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Permission-Policy
-anonymousoverflow_http_header_content_permission_policy: "{{ 'interest-cohort=()' if anonymousoverflow_floc_optout_enabled else '' }}"
+# Specifies the value of the `Permissions-Policy` header.
+# See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Permissions-Policy
+anonymousoverflow_http_header_permissions_policy: "{{ 'interest-cohort=()' if anonymousoverflow_floc_optout_enabled else '' }}"
 
 # Specifies the value of the `Strict-Transport-Security` header.
 # See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security
@@ -156,7 +156,7 @@ anonymousoverflow_http_header_strict_transport_security: "max-age=31536000; incl
 # - https://amifloced.org/
 #
 # Of course, a better solution is to just stop using browsers (like Chrome), which participate in such tracking practices.
-# See: `anonymousoverflow_content_permission_policy`
+# See: `anonymousoverflow_http_header_permissions_policy`
 anonymousoverflow_floc_optout_enabled: true
 
 # Controls if HSTS preloading is enabled
