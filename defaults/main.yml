@@ -17,14 +17,14 @@ anonymousoverflow_base_path: "/{{ anonymousoverflow_identifier }}"
 # Only "release" tag is available
 anonymousoverflow_version: release
 
-anonymousoverflow_uid: ''
-anonymousoverflow_gid: ''
+anonymousoverflow_uid: ""
+anonymousoverflow_gid: ""
 
 # Specify URI scheme for anonymousoverflow_base_url.
 anonymousoverflow_scheme: https
 
 # The hostname at which AnonymousOverflow is served.
-anonymousoverflow_hostname: ''
+anonymousoverflow_hostname: ""
 
 # The path at which AnonymousOverflow is exposed.
 # This value must either be `/` or not end with a slash (e.g. `/anonymousoverflow`).
@@ -53,7 +53,7 @@ anonymousoverflow_container_image_self_build_src_files_path: "{{ anonymousoverfl
 # Controls whether the container exposes its HTTP port (tcp/8080 in the container).
 #
 # Takes an "<ip>:<port>" or "<port>" value (e.g. "127.0.0.1:2586"), or empty string to not expose.
-anonymousoverflow_container_http_host_bind_port: ''
+anonymousoverflow_container_http_host_bind_port: ""
 
 # The base container network. It will be auto-created by this role if it doesn't exist already.
 anonymousoverflow_container_network: "{{ anonymousoverflow_identifier }}"
@@ -119,7 +119,7 @@ anonymousoverflow_container_labels_traefik_additional_response_headers_custom: {
 # anonymousoverflow_container_labels_additional_labels: |
 #   my.label=1
 #   another.label="here"
-anonymousoverflow_container_labels_additional_labels: ''
+anonymousoverflow_container_labels_additional_labels: ""
 
 # A list of extra arguments to pass to the container (`docker run` command)
 anonymousoverflow_container_extra_arguments: []
@@ -187,4 +187,4 @@ anonymousoverflow_environment_variable_app_url: "{{ anonymousoverflow_base_url }
 anonymousoverflow_environment_variable_jwt_signing_secret: 'secret'
 
 # Additional environment variables.
-anonymousoverflow_environment_variables_additional_variables: ''
+anonymousoverflow_environment_variables_additional_variables: ""
