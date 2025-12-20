@@ -183,6 +183,9 @@ anonymousoverflow_systemd_wanted_services_list_default: []
 anonymousoverflow_systemd_wanted_services_list_auto: []
 anonymousoverflow_systemd_wanted_services_list_custom: []
 
+# Specify the timezone
+anonymousoverflow_environment_variables_tz: UTC
+
 anonymousoverflow_environment_variable_app_url: "{{ anonymousoverflow_base_url }}"
 anonymousoverflow_environment_variable_jwt_signing_secret: 'secret'
 
