@@ -26,7 +26,7 @@ anonymousoverflow_scheme: https
 # The hostname at which AnonymousOverflow is served.
 anonymousoverflow_hostname: ""
 
-# The path at which AnonymousOverflow is exposed.
+# The path at which AnonymousOverflow is served.
 # This value must either be `/` or not end with a slash (e.g. `/anonymousoverflow`).
 #
 # Hosting AnonymousOverflow under a subpath does not seem to be possible due to AnonymousOverflow's
