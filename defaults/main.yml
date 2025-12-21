@@ -124,7 +124,7 @@ anonymousoverflow_container_labels_additional_labels: "{{ anonymousoverflow_cont
 anonymousoverflow_container_labels_additional_labels_auto: {}
 anonymousoverflow_container_labels_additional_labels_custom: {}
 
-# A list of extra arguments to pass to the container (`docker run` command)
+# A list of extra arguments to pass to the container (`docker create` command)
 anonymousoverflow_container_extra_arguments: "{{ anonymousoverflow_container_extra_arguments_auto + anonymousoverflow_container_extra_arguments_custom }}"
 anonymousoverflow_container_extra_arguments_auto: []
 anonymousoverflow_container_extra_arguments_custom: []
