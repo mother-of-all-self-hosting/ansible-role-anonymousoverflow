@@ -56,4 +56,6 @@ traefik.http.routers.{{ anonymousoverflow_identifier }}.tls.certResolver={{ anon
 traefik.http.services.{{ anonymousoverflow_identifier }}.loadbalancer.server.port={{ anonymousoverflow_container_http_port }}
 {% endif %}
 
-{{ anonymousoverflow_container_labels_additional_labels }}
+{% for arg in anonymousoverflow_container_labels_additional_labels %}
+{{ arg }}
+{% endfor %}

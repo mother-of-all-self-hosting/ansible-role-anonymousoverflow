@@ -118,11 +118,11 @@ anonymousoverflow_container_labels_traefik_additional_response_headers_custom: {
 #
 # Example:
 # anonymousoverflow_container_labels_additional_labels_custom: |
-#   my.label=1
-#   another.label="here"
-anonymousoverflow_container_labels_additional_labels: "{{ anonymousoverflow_container_labels_additional_labels_auto | combine(anonymousoverflow_container_labels_additional_labels_custom) }}"
-anonymousoverflow_container_labels_additional_labels_auto: {}
-anonymousoverflow_container_labels_additional_labels_custom: {}
+#   - my.label=1
+#   - another.label="here"
+anonymousoverflow_container_labels_additional_labels: "{{ anonymousoverflow_container_labels_additional_labels_auto + anonymousoverflow_container_labels_additional_labels_custom }}"
+anonymousoverflow_container_labels_additional_labels_auto: []
+anonymousoverflow_container_labels_additional_labels_custom: []
 
 # A list of extra arguments to pass to the container (`docker create` command)
 anonymousoverflow_container_extra_arguments: "{{ anonymousoverflow_container_extra_arguments_auto + anonymousoverflow_container_extra_arguments_custom }}"
