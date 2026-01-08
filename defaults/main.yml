@@ -117,7 +117,7 @@ anonymousoverflow_container_labels_traefik_additional_response_headers_custom: {
 # To add your own custom labels, use `anonymousoverflow_container_labels_additional_labels_custom`
 #
 # Example:
-# anonymousoverflow_container_labels_additional_labels_custom: |
+# anonymousoverflow_container_labels_additional_labels_custom:
 #   - my.label=1
 #   - another.label="here"
 anonymousoverflow_container_labels_additional_labels: "{{ anonymousoverflow_container_labels_additional_labels_auto + anonymousoverflow_container_labels_additional_labels_custom }}"
