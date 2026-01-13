@@ -20,7 +20,7 @@ anonymousoverflow_version: release
 anonymousoverflow_uid: ""
 anonymousoverflow_gid: ""
 
-# Specify URI scheme for anonymousoverflow_base_url.
+# The scheme used for serving AnonymousOverflow.
 anonymousoverflow_scheme: https
 
 # The hostname at which AnonymousOverflow is served.
