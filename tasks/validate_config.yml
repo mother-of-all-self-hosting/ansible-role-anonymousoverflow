@@ -24,6 +24,7 @@
     - anonymousoverflow_hostname
     - anonymousoverflow_path_prefix
     - anonymousoverflow_container_network
+    - anonymousoverflow_environment_variable_jwt_signing_secret
 
 - name: Run if Traefik is enabled
   when: anonymousoverflow_container_labels_traefik_enabled | bool

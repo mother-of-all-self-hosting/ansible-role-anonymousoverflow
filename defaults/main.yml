@@ -226,7 +226,7 @@ anonymousoverflow_container_cleanup_command: |
 anonymousoverflow_environment_variables_tz: UTC
 
 anonymousoverflow_environment_variable_app_url: "{{ anonymousoverflow_base_url }}"
-anonymousoverflow_environment_variable_jwt_signing_secret: 'secret'
+anonymousoverflow_environment_variable_jwt_signing_secret: ""
 
 # Additional environment variables.
 anonymousoverflow_environment_variables_additional_variables: ""
