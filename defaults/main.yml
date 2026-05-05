@@ -42,7 +42,6 @@ anonymousoverflow_container_image_tag: "{{ anonymousoverflow_version }}"
 anonymousoverflow_container_image_registry_prefix: "{{ anonymousoverflow_container_image_registry_prefix_upstream }}"
 anonymousoverflow_container_image_registry_prefix_upstream: "{{ anonymousoverflow_container_image_registry_prefix_upstream_default }}"
 anonymousoverflow_container_image_registry_prefix_upstream_default: ghcr.io/
-anonymousoverflow_container_image_force_pull: "{{ anonymousoverflow_container_image.endswith(':latest') }}"
 
 anonymousoverflow_container_image_self_build: false
 anonymousoverflow_container_image_self_build_name: "httpjamesm/anonymousoverflow:{{ anonymousoverflow_container_image_self_build_repo_version }}"
