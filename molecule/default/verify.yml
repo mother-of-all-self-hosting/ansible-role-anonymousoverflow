@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: 2026 Suguru Hirahara
+# SPDX-FileCopyrightText: 2026 spatterlight
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+---
+- name: Verify AnonymousOverflow systemd service
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Wait for AnonymousOverflow service to become active (up to 180s)
+      ansible.builtin.systemd:
+        name: anonymousoverflow.service
+      register: anonymousoverflow_service
+      until: anonymousoverflow_service.status.ActiveState == 'active'
+      retries: 36
+      delay: 5
+
+    - name: Assert AnonymousOverflow service is active
+      ansible.builtin.assert:
+        that: anonymousoverflow_service.status.ActiveState == 'active'
+        fail_msg: "anonymousoverflow.service not active ({{ anonymousoverflow_service.status.ActiveState }})"
+        success_msg: "anonymousoverflow.service is active"
+
+    - name: Wait for AnonymousOverflow HTTP endpoint to respond (up to 10m)
+      ansible.builtin.uri:
+        url: "http://localhost:8080/"
+        method: GET
+        status_code: [200, 302]
+        follow_redirects: none
+      register: anonymousoverflow_endpoint
+      until: anonymousoverflow_endpoint.status in [200, 302]
+      retries: 120
+      delay: 5
+
+    - name: Assert AnonymousOverflow HTTP endpoint responds
+      ansible.builtin.assert:
+        that: anonymousoverflow_endpoint.status in [200, 302]
+        fail_msg: "AnonymousOverflow did not respond as expected ({{ anonymousoverflow_endpoint.status | default('no response') }})"
+        success_msg: "AnonymousOverflow responded with {{ anonymousoverflow_endpoint.status }}"
+
+    - name: Show AnonymousOverflow systemd service status summary
+      ansible.builtin.debug:
+        msg:
+          - "AnonymousOverflow systemd: {{ anonymousoverflow_service.status.ActiveState }}"
+          - "AnonymousOverflow HTTP: {{ anonymousoverflow_endpoint.status }}"

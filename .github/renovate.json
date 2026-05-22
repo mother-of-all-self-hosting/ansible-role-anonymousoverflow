@@ -35,5 +35,8 @@
   ],
   "pre-commit": {
     "enabled": true
+  },
+  "pyenv": {
+    "enabled": true
   }
 }
