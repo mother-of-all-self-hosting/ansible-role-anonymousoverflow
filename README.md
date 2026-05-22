@@ -20,6 +20,8 @@ Check [`defaults/main.yml`](defaults/main.yml) for the full list of supported op
 
 ## Development
 
+### pre-commit
+
 You can optionally install a Git pre-commit hook (via [mise](https://mise.jdx.dev/) + [prek](https://prek.j178.dev/)) that runs formatting and linting checks before each commit. See [`.pre-commit-config.yaml`](./.pre-commit-config.yaml) for which hooks are to be executed.
 
 To install the hook, run the [`just`](https://github.com/casey/just) command below:
