@@ -93,6 +93,9 @@ anonymousoverflow_container_labels_traefik_priority: 0
 anonymousoverflow_container_labels_traefik_entrypoints: web-secure
 anonymousoverflow_container_labels_traefik_tls: "{{ anonymousoverflow_container_labels_traefik_entrypoints != 'web' }}"
 anonymousoverflow_container_labels_traefik_tls_certResolver: default  # noqa var-naming
+anonymousoverflow_container_labels_traefik_middleware_basic_auth_enabled: false
+# See: https://doc.traefik.io/traefik/reference/routing-configuration/http/middlewares/basicauth/
+anonymousoverflow_container_labels_traefik_middleware_basic_auth_users: ""
 
 # Controls which additional headers to attach to all HTTP requests.
 # To add your own custom request headers, use `anonymousoverflow_container_labels_traefik_additional_request_headers_custom`
