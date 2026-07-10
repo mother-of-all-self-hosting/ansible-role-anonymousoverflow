@@ -11,6 +11,7 @@
     {
       "matchFileNames": [
         ".github/workflows/autotag.yml",
+        ".github/workflows/close-stale-issues.yml",
         ".github/workflows/molecule.yml",
         ".github/workflows/pre-commit.yml",
         ".pre-commit-config.yaml",
