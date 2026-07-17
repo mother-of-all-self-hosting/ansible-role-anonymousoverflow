@@ -27,6 +27,10 @@ provisioner:
   inventory:
     group_vars:
       all:
+        # Helper variables
+        anonymousoverflow_debug_service_enabled: false
+
+        # Variables for AnonymousOverflow
         anonymousoverflow_uid: 1000
         anonymousoverflow_gid: 1000
         anonymousoverflow_hostname: anonymousoverflow
