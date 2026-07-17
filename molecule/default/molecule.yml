@@ -33,7 +33,8 @@ provisioner:
         # Variables for AnonymousOverflow
         anonymousoverflow_uid: 1000
         anonymousoverflow_gid: 1000
-        anonymousoverflow_hostname: anonymousoverflow
+        anonymousoverflow_scheme: http
+        anonymousoverflow_hostname: localhost
         anonymousoverflow_container_labels_traefik_enabled: false
         anonymousoverflow_container_http_host_bind_port: 8080
         anonymousoverflow_base_url: http://localhost:8080/
