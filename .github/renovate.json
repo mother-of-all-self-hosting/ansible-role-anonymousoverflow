@@ -9,6 +9,15 @@
   ],
   "packageRules": [
     {
+      "ignoreUnstable": false,
+      "versioning": "loose",
+      "matchSourceUrls": [
+        "https://github.com/geerlingguy{/,}**",
+        "https://github.com/devture/com.devture.ansible.role{/,}**",
+        "https://github.com/mother-of-all-self-hosting{/,}**"
+      ]
+    },
+    {
       "matchFileNames": [
         ".github/workflows/autotag.yml",
         ".github/workflows/close-stale-issues.yml",
