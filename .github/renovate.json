@@ -7,7 +7,8 @@
     ":semanticCommitsDisabled"
   ],
   "ignorePresets": [
-    "docker:pinDigests"
+    "docker:pinDigests",
+    ":maintainLockFilesWeekly"
   ],
   "labels": [
     "dependencies"
