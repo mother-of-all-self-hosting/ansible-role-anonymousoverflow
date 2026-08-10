@@ -25,14 +25,7 @@
   "packageRules": [
     {
       "matchManagers": ["github-actions", "mise"],
-      "commitBody": "[skip ci]",
-      "schedule": ["* * 1-7 */6 *"],
-      "automergeSchedule": ["* * 1-14 */6 *"]
-    },
-    {
-      "matchManagers": ["pip_requirements", "pre-commit", "pyenv"],
-      "schedule": ["* * 1-7 */6 *"],
-      "automergeSchedule": ["* * 1-14 */6 *"]
+      "commitBody": "[skip ci]"
     }
   ],
   "customManagers": [
