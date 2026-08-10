@@ -1,11 +1,13 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:recommended",
+    "config:best-practices",
     ":automergeAll",
     ":automergeBranch",
     ":semanticCommitsDisabled",
-    "helpers:pinGitHubActionDigests"
+  ],
+  "ignorePresets": [
+    "docker:pinDigests"
   ],
   "labels": [
     "dependencies"
