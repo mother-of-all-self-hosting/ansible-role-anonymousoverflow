@@ -107,6 +107,7 @@ jobs:
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           EVENT_NAME: ${{ github.event_name }}
+          PUSHED_FROM: ${{ github.event.before }}
         run: |
           set -eu
 
@@ -116,11 +117,17 @@ jobs:
             exit 0
           fi
 
-          # On a branch, everything since it left the default branch. On the
-          # default branch itself, the commit that was just pushed.
-          base="$(git merge-base "origin/$DEFAULT_BRANCH" HEAD || true)"
-          if [ -z "$base" ] || [ "$base" = "$(git rev-parse HEAD)" ]; then
-            base="$(git rev-parse HEAD^ 2>/dev/null || true)"
+          if [ "$GITHUB_REF_NAME" = "$DEFAULT_BRANCH" ]; then
+            # Everything this push added, which may be more than one commit.
+            base="${PUSHED_FROM:-}"
+            if [ -z "$base" ] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+              base="$(git rev-parse HEAD^ 2>/dev/null || true)"
+            fi
+          else
+            # Everything since the branch left the default branch, so that a
+            # force-pushed branch (which is how Renovate updates its own) is
+            # still compared against what it will be merged into.
+            base="$(git merge-base "origin/$DEFAULT_BRANCH" HEAD || true)"
           fi
 
           if [ -z "$base" ]; then
