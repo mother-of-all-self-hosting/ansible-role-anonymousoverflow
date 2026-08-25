@@ -172,16 +172,24 @@
       register: anonymousoverflow_journal
       changed_when: false
 
+    # Only the most recent announcement counts. The journal keeps every start
+    # the unit has ever had, so a converge that changed the port would leave the
+    # old announcement behind and an assertion over the whole journal would keep
+    # reading it.
     - name: Assert AnonymousOverflow listens on the port the role configured
+      vars:
+        anonymousoverflow_listen_lines: "{{ anonymousoverflow_journal.stdout_lines | select('search', 'Listening on 0[.]0[.]0[.]0:') | list }}"
+        anonymousoverflow_listen_line: "{{ anonymousoverflow_listen_lines | last | default('', true) }}"
       ansible.builtin.assert:
         that:
-          - "'Listening on 0.0.0.0:' ~ anonymousoverflow_container_http_port ~ '.' in anonymousoverflow_journal.stdout"
-          - "'Listening on 0.0.0.0:' ~ anonymousoverflow_verify_upstream_default_port ~ '.' not in anonymousoverflow_journal.stdout"
+          - anonymousoverflow_listen_lines | length > 0
+          - "'Listening on 0.0.0.0:' ~ anonymousoverflow_container_http_port ~ '.' in anonymousoverflow_listen_line"
+          - "'Listening on 0.0.0.0:' ~ anonymousoverflow_verify_upstream_default_port ~ '.' not in anonymousoverflow_listen_line"
         fail_msg: >-
           AnonymousOverflow is not listening on
           {{ anonymousoverflow_container_http_port }}, which is what
           `anonymousoverflow_container_http_port` published and routed to:
-          {{ anonymousoverflow_journal.stdout_lines | select('search', 'Listening on') | list }}
+          {{ anonymousoverflow_listen_lines }}
         success_msg: >-
           AnonymousOverflow announced that it listens on
           0.0.0.0:{{ anonymousoverflow_container_http_port }}, the port
