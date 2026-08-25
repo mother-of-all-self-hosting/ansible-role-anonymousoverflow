@@ -151,7 +151,9 @@
         anonymousoverflow_reported_version: "{{ anonymousoverflow_version_response.content | trim }}"
       ansible.builtin.assert:
         that:
-          - anonymousoverflow_src_ref == 'ref: refs/heads/' ~ anonymousoverflow_defaults.anonymousoverflow_version
+          # Quoted as a whole, so that the `: ` inside does not turn this list
+          # item into a mapping before Ansible ever sees it as a conditional.
+          - "anonymousoverflow_src_ref == 'ref: refs/heads/' ~ anonymousoverflow_defaults.anonymousoverflow_version"
           - anonymousoverflow_reported_version == anonymousoverflow_src_version
           - "'Version ' ~ anonymousoverflow_reported_version in anonymousoverflow_home.content"
         fail_msg: >-
