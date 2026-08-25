@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 Slavi Pantaleev
 # SPDX-FileCopyrightText: 2026 spatterlight
 # SPDX-FileCopyrightText: 2026 Suguru Hirahara
 #
@@ -18,6 +19,7 @@
     - name: Ensure required packages are installed for AnonymousOverflow Molecule tests preparation
       ansible.builtin.package:
         name:
+          - openssl
           - python3-requests
         state: present
 
@@ -27,3 +29,106 @@
       vars:
         docker_daemon_options:
           storage-driver: vfs
+
+    # ------------------------------------------------------------------
+    # A stand-in for StackOverflow
+    # ------------------------------------------------------------------
+    #
+    # Everything AnonymousOverflow is for needs StackOverflow to answer, and
+    # StackOverflow is exactly the kind of dependency that turns a CI gate into
+    # a coin flip. So nothing in this scenario's verification depends on
+    # StackOverflow existing.
+    #
+    # Two of the values the role configures do have a surface that only shows up
+    # once an outbound request has been made, though:
+    #
+    # - APP_URL is the prefix AnonymousOverflow puts in front of the redirect it
+    #   hands out for a shortened link (`/a/<id>/<answerId>`), and it only gets
+    #   that far after asking StackOverflow where the link points
+    # - JWT_SIGNING_SECRET is what signs and verifies the image-proxy tokens on
+    #   `/proxy`, and a verified token is followed by a fetch of the image
+    #
+    # So the scenario answers both requests itself: an nginx holding a
+    # certificate for `www.stackoverflow.com` signed by an authority created
+    # here, redirecting every HTTPS request to one fixed question path and
+    # serving one fixed string over plain HTTP. AnonymousOverflow reaches it
+    # because the stub joins the role's own container network under the
+    # `www.stackoverflow.com` network alias, which Docker's embedded resolver
+    # answers before it forwards anything upstream, and trusts it because
+    # SSL_CERT_FILE points Go's TLS trust at the authority certificate.
+    #
+    # The stub returns nothing resembling real StackOverflow data and is not
+    # asked to. Its only job is to let two configured values be read back out of
+    # a running process rather than off the disk.
+
+    - name: Ensure the AnonymousOverflow Molecule stub directories exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ anonymousoverflow_molecule_ca_path }}"
+        - "{{ anonymousoverflow_molecule_stub_path }}"
+
+    - name: Ensure a certificate authority and a www.stackoverflow.com certificate exist
+      ansible.builtin.shell:
+        cmd: |
+          set -eu
+          umask 0022
+          openssl req -x509 -newkey rsa:2048 -sha256 -days 3650 -nodes \
+            -keyout '{{ anonymousoverflow_molecule_stub_path }}/ca.key' \
+            -out '{{ anonymousoverflow_molecule_ca_path }}/ca.crt' \
+            -subj '/CN=AnonymousOverflow Molecule Test CA'
+          openssl req -newkey rsa:2048 -sha256 -nodes \
+            -keyout '{{ anonymousoverflow_molecule_stub_path }}/server.key' \
+            -out '{{ anonymousoverflow_molecule_stub_path }}/server.csr' \
+            -subj '/CN=www.stackoverflow.com'
+          printf 'subjectAltName=DNS:www.stackoverflow.com\nbasicConstraints=CA:FALSE\nextendedKeyUsage=serverAuth\n' \
+            > '{{ anonymousoverflow_molecule_stub_path }}/server.ext'
+          openssl x509 -req -sha256 -days 3650 \
+            -in '{{ anonymousoverflow_molecule_stub_path }}/server.csr' \
+            -CA '{{ anonymousoverflow_molecule_ca_path }}/ca.crt' \
+            -CAkey '{{ anonymousoverflow_molecule_stub_path }}/ca.key' \
+            -CAcreateserial \
+            -extfile '{{ anonymousoverflow_molecule_stub_path }}/server.ext' \
+            -out '{{ anonymousoverflow_molecule_stub_path }}/server.crt'
+        creates: "{{ anonymousoverflow_molecule_stub_path }}/server.crt"
+
+    # The AnonymousOverflow container runs as an unprivileged user and mounts
+    # this directory read-only, so the authority certificate has to be readable
+    # by anyone. The keys stay behind in the stub's own directory.
+    - name: Ensure the authority certificate is world-readable
+      ansible.builtin.file:
+        path: "{{ anonymousoverflow_molecule_ca_path }}/ca.crt"
+        mode: "0644"
+
+    # `absolute_redirect off` is what keeps nginx from rewriting the redirect
+    # into an absolute `https://www.stackoverflow.com/...` URL. StackOverflow
+    # answers a shortened link with a path, AnonymousOverflow prepends APP_URL
+    # to whatever it gets back, and a path is what makes the result readable as
+    # "APP_URL, and then the path".
+    - name: Ensure the stub's nginx configuration is present
+      ansible.builtin.copy:
+        dest: "{{ anonymousoverflow_molecule_stub_path }}/nginx.conf"
+        mode: "0644"
+        content: |
+          events {}
+          http {
+            access_log /dev/stdout;
+            absolute_redirect off;
+            server {
+              listen 443 ssl;
+              ssl_certificate     /stub/server.crt;
+              ssl_certificate_key /stub/server.key;
+              location / {
+                return 302 {{ anonymousoverflow_molecule_stub_question_path }};
+              }
+            }
+            server {
+              listen 80;
+              location / {
+                default_type text/plain;
+                return 200 '{{ anonymousoverflow_molecule_stub_image_body }}';
+              }
+            }
+          }

@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 Slavi Pantaleev
 # SPDX-FileCopyrightText: 2026 spatterlight
 # SPDX-FileCopyrightText: 2026 Suguru Hirahara
 #
@@ -31,15 +32,94 @@ provisioner:
         # Helper variables
         anonymousoverflow_debug_service_enabled: false
 
+        # The container and network names the role derives from its identifier.
+        # Role defaults are not in scope in every play, so they are spelled out.
+        anonymousoverflow_molecule_container: anonymousoverflow
+        anonymousoverflow_molecule_container_network: anonymousoverflow
+
+        # AnonymousOverflow is a StackOverflow frontend, and the one route that
+        # reflects APP_URL back at a caller is the shortened-link redirect,
+        # which asks StackOverflow where a shortened link points before it
+        # answers. Rather than depend on StackOverflow, the scenario stands a
+        # stub in its place - see molecule/README.md for why and prepare.yml
+        # for how.
+        #
+        # The name carries both the role and the scenario, like the platform
+        # does, so a leftover container can never be mistaken for another
+        # scenario's.
+        anonymousoverflow_molecule_stub_container: "{{ inventory_hostname }}-mock-stackoverflow"
+        # Pinned even though Renovate does not track it - the shared preset's
+        # custom manager only reads defaults/main.yml. A stub that answers with
+        # one redirect and one constant string has nothing to gain from a newer
+        # nginx, and a pin keeps a CI run from failing for a reason that has
+        # nothing to do with the change under test.
+        anonymousoverflow_molecule_stub_image: docker.io/nginx:1.31.4-alpine
+        anonymousoverflow_molecule_stub_path: /var/lib/anonymousoverflow-molecule/stub
+        # Only the certificate authority certificate goes into the
+        # AnonymousOverflow container - not the key that signs with it, and not
+        # the stub's own key either.
+        anonymousoverflow_molecule_ca_path: /var/lib/anonymousoverflow-molecule/ca
+        anonymousoverflow_molecule_ca_path_in_container: /mock-stackoverflow
+
+        # What the stub redirects every shortened link to, and what it serves
+        # over plain HTTP for the image proxy to fetch. Both are arbitrary, and
+        # both are distinctive enough that nothing else could have produced
+        # them.
+        anonymousoverflow_molecule_stub_question_path: /questions/1234567/molecule-stub-question-title
+        anonymousoverflow_molecule_stub_image_body: molecule-stub-image-body
+
+        # The theme the role is made to configure. Anything but `auto`, which is
+        # what AnonymousOverflow renders when nothing sets THEME.
+        anonymousoverflow_molecule_theme: dark
+
+        # Where the verification reaches the instance the role installed, and
+        # the instance it stands up as a negative control. Both live on the
+        # platform container's own loopback interface.
+        anonymousoverflow_molecule_host_port: 8080
+        anonymousoverflow_molecule_control_port: 8099
+
         # Variables for AnonymousOverflow
         anonymousoverflow_uid: 1000
         anonymousoverflow_gid: 1000
         anonymousoverflow_scheme: http
-        anonymousoverflow_hostname: localhost
+        # Not a hostname anything resolves - APP_URL is only ever a prefix that
+        # AnonymousOverflow puts in front of the redirects it hands out, and
+        # this makes it unmistakable in an assertion where the value came from.
+        anonymousoverflow_hostname: anonymousoverflow.molecule.example.com
         anonymousoverflow_container_labels_traefik_enabled: false
-        anonymousoverflow_container_http_host_bind_port: 8080
-        anonymousoverflow_base_url: http://localhost:8080/
-        anonymousoverflow_environment_variable_jwt_signing_secret: secret
+        # Deliberately not AnonymousOverflow's own default of 8080: if the role
+        # stops passing this through as `PORT`, the process keeps listening on
+        # 8080 and nothing published or routed reaches it. That regression is
+        # what the port assertions in verify.yml exist to catch.
+        anonymousoverflow_container_http_port: 9090
+        anonymousoverflow_container_http_host_bind_port: 127.0.0.1:8080
+        # AnonymousOverflow signs the image-proxy links it generates with this,
+        # and rejects a token signed with anything else - which is what lets
+        # verify.yml check the value rather than merely its presence.
+        anonymousoverflow_environment_variable_jwt_signing_secret: molecule-jwt-signing-secret-0123456789
+
+        # The free-form escape hatch, which is a different path through
+        # templates/env.j2 than the dedicated variables above.
+        #
+        # THEME is what the home page renders into its `data-theme` attribute
+        # (an unconfigured AnonymousOverflow renders `auto`), DISABLE_RATELIMIT
+        # turns off the 30-requests-per-minute limiter that an unconfigured one
+        # applies, and SSL_CERT_FILE is what points Go's TLS trust at the stub's
+        # authority.
+        anonymousoverflow_environment_variables_additional_variables: |
+          THEME={{ anonymousoverflow_molecule_theme }}
+          DISABLE_RATELIMIT=true
+          SSL_CERT_FILE={{ anonymousoverflow_molecule_ca_path_in_container }}/ca.crt
+
+        # The role declares this variable and documents it as the way to mount
+        # your own files into the container, but did not render it into the
+        # systemd unit until recently. Mounting the authority certificate
+        # through it is also what keeps that from silently regressing.
+        anonymousoverflow_container_additional_volumes_custom:
+          - type: bind
+            src: "{{ anonymousoverflow_molecule_ca_path }}"
+            dst: "{{ anonymousoverflow_molecule_ca_path_in_container }}"
+            options: readonly
   env:
     # Workaround for https://github.com/ansible/molecule/issues/4391
     ANSIBLE_ROLES_PATH: ${MOLECULE_PROJECT_DIRECTORY}/..:/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles:~/.ansible/roles

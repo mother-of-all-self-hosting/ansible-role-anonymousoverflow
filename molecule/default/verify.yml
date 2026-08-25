@@ -1,53 +1,582 @@
+# SPDX-FileCopyrightText: 2026 Slavi Pantaleev
 # SPDX-FileCopyrightText: 2026 spatterlight
 # SPDX-FileCopyrightText: 2026 Suguru Hirahara
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 ---
-- name: Verify AnonymousOverflow systemd service
+- name: Verify AnonymousOverflow
   hosts: all
   become: true
   gather_facts: false
+
+  vars:
+    anonymousoverflow_verify_url: "http://127.0.0.1:{{ anonymousoverflow_molecule_host_port }}"
+
+    # What the role derives `anonymousoverflow_base_url` (and from it APP_URL)
+    # to be, spelled out rather than read back from the role: role defaults are
+    # not in scope in a verify play, and a Jinja-derived one could not be read
+    # out of defaults/main.yml even if it were. The scenario leaves
+    # `anonymousoverflow_path_prefix` at its default of `/`, which contributes
+    # nothing to the base URL.
+    anonymousoverflow_verify_app_url: "{{ anonymousoverflow_scheme }}://{{ anonymousoverflow_hostname }}"
+
+    # The name carries both the role and the scenario, like the platform does,
+    # so a leftover container can never be mistaken for another scenario's.
+    anonymousoverflow_verify_control_container: "{{ inventory_hostname }}-negative-control"
+    anonymousoverflow_verify_control_url: "http://127.0.0.1:{{ anonymousoverflow_molecule_control_port }}"
+
+    # Deliberately unlike anything the role configures, so that a value read
+    # back out of the control cannot be confused with a value read back out of
+    # the instance the role installed.
+    anonymousoverflow_verify_control_app_url: http://control.molecule.invalid
+    anonymousoverflow_verify_control_jwt_secret: control-secret-which-is-not-the-roles
+
+    # A shortened link. Neither number means anything - the stub redirects every
+    # request to the same place regardless.
+    anonymousoverflow_verify_shortlink_path: /a/1234567/7654321
+
+    # AnonymousOverflow's own default, which is what the process listens on when
+    # nothing tells it otherwise.
+    anonymousoverflow_verify_upstream_default_port: 8080
+
+    # AnonymousOverflow's built-in limiter allows 30 requests per minute per
+    # client address before it starts answering 429, unless DISABLE_RATELIMIT
+    # says otherwise. Comfortably more than 30, so an instance that still has
+    # the limiter has to hit it.
+    anonymousoverflow_verify_burst: "{{ range(1, 41) | list }}"
+
+    # Mints an image-proxy token the way AnonymousOverflow's own
+    # `generateImageProxyAuth` does (HS512 over the `ImageProxyClaims` struct),
+    # so that `/proxy` accepts it if and only if the process is holding the same
+    # JWT_SIGNING_SECRET. Written out by hand because the CI lint environment
+    # has no collection that can sign a JWT.
+    #
+    # `python3 -c <script> <secret> <url>` puts the secret in sys.argv[1] and
+    # the URL in sys.argv[2].
+    anonymousoverflow_verify_jwt_script: |
+      import base64, hashlib, hmac, json, sys, time
+      def b64(value):
+          return base64.urlsafe_b64encode(value).rstrip(b'=')
+      now = int(time.time())
+      header = b64(json.dumps({'alg': 'HS512', 'typ': 'JWT'}, separators=(',', ':')).encode())
+      payload = b64(json.dumps({'action': 'imageProxy', 'image_url': sys.argv[2], 'iss': now, 'exp': now + 300}, separators=(',', ':')).encode())
+      signed = header + b'.' + payload
+      signature = b64(hmac.new(sys.argv[1].encode(), signed, hashlib.sha512).digest())
+      sys.stdout.write((signed + b'.' + signature).decode())
+
+    # What the image proxy is pointed at. The host is the stub's network alias,
+    # over plain HTTP, so the fetch that follows a verified token lands on the
+    # stub's constant string.
+    anonymousoverflow_verify_proxied_image_url: http://www.stackoverflow.com/molecule-image
+
   tasks:
-    - name: Wait for AnonymousOverflow service to become active (up to 180s)
-      ansible.builtin.systemd:
+    # Role defaults are not in scope in a verify play, but the version the role
+    # installs lives in them and is what the running container is checked
+    # against below. Only leaf literals may be read out of this - anything
+    # Jinja-derived would be resolved against an empty namespace. Loading it
+    # under a name of its own also keeps it from outranking the scenario's own
+    # group_vars, which is what the assertions further down compare against.
+    - name: Load the AnonymousOverflow role defaults
+      ansible.builtin.include_vars:
+        file: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}/defaults/main.yml"
+        name: anonymousoverflow_defaults
+
+    # ------------------------------------------------------------------
+    # The unit is up
+    # ------------------------------------------------------------------
+
+    - name: Wait for the AnonymousOverflow systemd service to become active (up to 180s)
+      ansible.builtin.systemd_service:
         name: anonymousoverflow.service
       register: anonymousoverflow_service
       until: anonymousoverflow_service.status.ActiveState == 'active'
       retries: 36
       delay: 5
 
-    - name: Assert AnonymousOverflow service is active
+    - name: Assert the AnonymousOverflow systemd service is active
       ansible.builtin.assert:
         that: anonymousoverflow_service.status.ActiveState == 'active'
-        fail_msg: "anonymousoverflow.service not active ({{ anonymousoverflow_service.status.ActiveState }})"
-        success_msg: "anonymousoverflow.service is active"
+        fail_msg: "The AnonymousOverflow systemd service is {{ anonymousoverflow_service.status.ActiveState }}"
+        success_msg: "The AnonymousOverflow systemd service is active"
 
-    - name: Retrieve AnonymousOverflow service log for debugging
+    - name: Retrieve the service logs for debugging
       when: anonymousoverflow_debug_service_enabled | bool
       ansible.builtin.command:
         cmd: journalctl -xeu anonymousoverflow.service
       changed_when: false
 
-    - name: Wait for AnonymousOverflow HTTP endpoint to respond (up to 10m)
+    - name: Read the AnonymousOverflow container the role created
+      ansible.builtin.command:
+        cmd: "docker inspect {{ anonymousoverflow_molecule_container }}"
+      register: anonymousoverflow_container_raw
+      changed_when: false
+
+    - name: Make sense of the AnonymousOverflow container
+      ansible.builtin.set_fact:
+        anonymousoverflow_container: "{{ (anonymousoverflow_container_raw.stdout | from_json)[0] }}"
+
+    # ------------------------------------------------------------------
+    # Two image-proxy tokens, to be offered to everything below
+    # ------------------------------------------------------------------
+
+    - name: Mint an image-proxy token signed with the secret the role configured
+      ansible.builtin.command:
+        argv:
+          - python3
+          - -c
+          - "{{ anonymousoverflow_verify_jwt_script }}"
+          - "{{ anonymousoverflow_environment_variable_jwt_signing_secret }}"
+          - "{{ anonymousoverflow_verify_proxied_image_url }}"
+      register: anonymousoverflow_role_token
+      changed_when: false
+
+    - name: Mint an image-proxy token signed with a different secret
+      ansible.builtin.command:
+        argv:
+          - python3
+          - -c
+          - "{{ anonymousoverflow_verify_jwt_script }}"
+          - "{{ anonymousoverflow_verify_control_jwt_secret }}"
+          - "{{ anonymousoverflow_verify_proxied_image_url }}"
+      register: anonymousoverflow_other_token
+      changed_when: false
+
+    # ------------------------------------------------------------------
+    # The negative control, part one: the image on its own does nothing
+    # ------------------------------------------------------------------
+
+    # AnonymousOverflow refuses to start without APP_URL and JWT_SIGNING_SECRET
+    # (see `env.RunChecks`), so the image cannot serve a wizard, a placeholder
+    # or anything else that a probe might mistake for a working install. The
+    # env file the role writes is load-bearing, and this is what says so.
+    - name: Run the image the role installs with no configuration at all
+      ansible.builtin.command:
+        argv:
+          - docker
+          - run
+          - --rm
+          - "{{ anonymousoverflow_container.Config.Image }}"
+      register: anonymousoverflow_control_bare
+      changed_when: false
+      failed_when: false
+
+    - name: Assert the unconfigured image refuses to start
+      ansible.builtin.assert:
+        that:
+          - anonymousoverflow_control_bare.rc != 0
+          - "'Environment variable APP_URL is not set' in anonymousoverflow_control_bare.stderr"
+        fail_msg: >-
+          The image served something without the role's env file (exit
+          {{ anonymousoverflow_control_bare.rc }}), so a probe of a running
+          instance would not be evidence that the role configured it:
+          {{ anonymousoverflow_control_bare.stderr | default('') | trim }}
+        success_msg: >-
+          The image refuses to start without the env file the role writes, so
+          everything answering below is answering because of the role
+
+    # ------------------------------------------------------------------
+    # The negative control, part two: the same image, minimally configured
+    # ------------------------------------------------------------------
+
+    # The control gets exactly what AnonymousOverflow refuses to start without
+    # (APP_URL and JWT_SIGNING_SECRET, both with values of their own), plus the
+    # stub's certificate authority so that it can reach the same stand-in for
+    # StackOverflow. It gets none of PORT, THEME or DISABLE_RATELIMIT, and the
+    # secret it does get is not the role's - which is what makes each assertion
+    # further down attributable to the role rather than to the image.
+    - name: Probe an AnonymousOverflow that the role has not configured
+      block:
+        - name: Start an AnonymousOverflow with none of the role's configuration
+          ansible.builtin.command:
+            argv:
+              - docker
+              - run
+              - --detach
+              - --rm
+              - --name
+              - "{{ anonymousoverflow_verify_control_container }}"
+              - --network
+              - "{{ anonymousoverflow_molecule_container_network }}"
+              - --publish
+              - "127.0.0.1:{{ anonymousoverflow_molecule_control_port }}:{{ anonymousoverflow_verify_upstream_default_port }}"
+              - --env
+              - "APP_URL={{ anonymousoverflow_verify_control_app_url }}"
+              - --env
+              - "JWT_SIGNING_SECRET={{ anonymousoverflow_verify_control_jwt_secret }}"
+              - --env
+              - "SSL_CERT_FILE={{ anonymousoverflow_molecule_ca_path_in_container }}/ca.crt"
+              - --volume
+              - "{{ anonymousoverflow_molecule_ca_path }}:{{ anonymousoverflow_molecule_ca_path_in_container }}:ro"
+              - "{{ anonymousoverflow_container.Config.Image }}"
+          changed_when: true
+
+        # That this answers at all is the port half of the control: the control
+        # was published from the container's 8080, which is where
+        # AnonymousOverflow listens when nothing sets PORT.
+        - name: Wait for the unconfigured AnonymousOverflow to come up (up to 3m)
+          ansible.builtin.uri:
+            url: "{{ anonymousoverflow_verify_control_url }}/"
+            return_content: true
+            follow_redirects: none
+            status_code: [200, -1]
+          register: anonymousoverflow_control_home
+          until: anonymousoverflow_control_home.status == 200
+          retries: 36
+          delay: 5
+
+        - name: Ask the unconfigured AnonymousOverflow to resolve a shortened link
+          ansible.builtin.uri:
+            url: "{{ anonymousoverflow_verify_control_url }}{{ anonymousoverflow_verify_shortlink_path }}"
+            follow_redirects: none
+            status_code: [302]
+          register: anonymousoverflow_control_shortlink
+
+        - name: Offer the unconfigured AnonymousOverflow a token signed with the role's secret
+          ansible.builtin.uri:
+            url: "{{ anonymousoverflow_verify_control_url }}/proxy?auth={{ anonymousoverflow_role_token.stdout }}"
+            return_content: true
+            follow_redirects: none
+            status_code: [200, 400]
+          register: anonymousoverflow_control_proxy
+
+        - name: Ask the unconfigured AnonymousOverflow for more than its rate limit allows
+          ansible.builtin.uri:
+            url: "{{ anonymousoverflow_verify_control_url }}/version"
+            return_content: true
+            follow_redirects: none
+            status_code: [200, 429]
+          register: anonymousoverflow_control_burst
+          loop: "{{ anonymousoverflow_verify_burst }}"
+          loop_control:
+            label: "request {{ item }}"
+      always:
+        - name: Stop the unconfigured AnonymousOverflow
+          ansible.builtin.command:
+            argv:
+              - docker
+              - rm
+              - --force
+              - "{{ anonymousoverflow_verify_control_container }}"
+          changed_when: true
+
+    - name: Assert the unconfigured AnonymousOverflow reports none of what the role configures
+      ansible.builtin.assert:
+        that:
+          # Listening where AnonymousOverflow listens on its own, not where the
+          # role told the process to listen.
+          - anonymousoverflow_control_home.status == 200
+          - anonymousoverflow_verify_upstream_default_port != anonymousoverflow_container_http_port
+          # The theme it renders without being given one.
+          - "'data-theme=\"auto\"' in anonymousoverflow_control_home.content"
+          - "'data-theme=\"' ~ anonymousoverflow_molecule_theme ~ '\"' not in anonymousoverflow_control_home.content"
+          # Its own APP_URL in front of the redirect, not the role's.
+          - anonymousoverflow_control_shortlink.location.startswith(anonymousoverflow_verify_control_app_url)
+          - not anonymousoverflow_control_shortlink.location.startswith(anonymousoverflow_verify_app_url)
+          # A token signed with the role's secret is not one this instance holds.
+          - anonymousoverflow_control_proxy.status == 400
+          # And the limiter the role turns off is still on.
+          - anonymousoverflow_control_burst.results | map(attribute='status') | select('eq', 429) | list | length > 0
+        fail_msg: >-
+          The unconfigured AnonymousOverflow already behaves the way this role
+          is supposed to configure it, so nothing below can be credited to the
+          role: home page={{ anonymousoverflow_control_home.content | regex_search('data-theme="[^"]*"') }},
+          shortened link redirect={{ anonymousoverflow_control_shortlink.location }},
+          image proxy={{ anonymousoverflow_control_proxy.status }},
+          rate limited responses={{ anonymousoverflow_control_burst.results | map(attribute='status') | select('eq', 429) | list | length }}
+        success_msg: >-
+          The unconfigured AnonymousOverflow listens on its own default port
+          {{ anonymousoverflow_verify_upstream_default_port }}, renders the
+          `auto` theme, prefixes its redirects with its own APP_URL, rejects a
+          token signed with the role's secret and still rate limits - so
+          everything below is the role's doing
+
+    # ------------------------------------------------------------------
+    # The role's AnonymousOverflow is up, on the port the role named
+    # ------------------------------------------------------------------
+
+    # This reaching anything is the first half of the port evidence: the unit
+    # published the container's `anonymousoverflow_container_http_port`, so if
+    # the process were still on AnonymousOverflow's own default there would be
+    # nothing behind the published port at all.
+    - name: Wait for AnonymousOverflow to answer (up to 3m)
       ansible.builtin.uri:
-        url: "http://localhost:8080/"
-        method: GET
-        status_code: [200, 302]
+        url: "{{ anonymousoverflow_verify_url }}/"
+        return_content: true
         follow_redirects: none
-      register: anonymousoverflow_endpoint
-      until: anonymousoverflow_endpoint.status in [200, 302]
-      retries: 120
+        status_code: [200, -1]
+      register: anonymousoverflow_home
+      until: anonymousoverflow_home.status == 200
+      retries: 36
       delay: 5
 
-    - name: Assert AnonymousOverflow HTTP endpoint responds
-      ansible.builtin.assert:
-        that: anonymousoverflow_endpoint.status in [200, 302]
-        fail_msg: "AnonymousOverflow did not respond as expected ({{ anonymousoverflow_endpoint.status | default('no response') }})"
-        success_msg: "AnonymousOverflow responded with {{ anonymousoverflow_endpoint.status }}"
+    # The second half, from the process itself: AnonymousOverflow announces the
+    # address it binds on startup. The unit runs the container with
+    # `--log-driver=none` and `docker start --attach`, so that line arrives in
+    # the journal rather than in `docker logs`.
+    - name: Read what AnonymousOverflow announced on startup
+      ansible.builtin.command:
+        cmd: journalctl --no-pager --unit anonymousoverflow.service
+      register: anonymousoverflow_journal
+      changed_when: false
 
-    - name: Show AnonymousOverflow systemd service status summary
+    - name: Assert AnonymousOverflow listens on the port the role configured
+      ansible.builtin.assert:
+        that:
+          - "'Listening on 0.0.0.0:' ~ anonymousoverflow_container_http_port ~ '.' in anonymousoverflow_journal.stdout"
+          - "'Listening on 0.0.0.0:' ~ anonymousoverflow_verify_upstream_default_port ~ '.' not in anonymousoverflow_journal.stdout"
+        fail_msg: >-
+          AnonymousOverflow is not listening on
+          {{ anonymousoverflow_container_http_port }}, which is what
+          `anonymousoverflow_container_http_port` published and routed to:
+          {{ anonymousoverflow_journal.stdout_lines | select('search', 'Listening on') | list }}
+        success_msg: >-
+          AnonymousOverflow announced that it listens on
+          0.0.0.0:{{ anonymousoverflow_container_http_port }}, the port
+          `anonymousoverflow_container_http_port` names, and answers behind it
+
+    # ------------------------------------------------------------------
+    # Configuration reaches the process, not just the files on disk
+    # ------------------------------------------------------------------
+
+    - name: Assert the theme the role configured reaches the rendered page
+      ansible.builtin.assert:
+        that:
+          - "'data-theme=\"' ~ anonymousoverflow_molecule_theme ~ '\"' in anonymousoverflow_home.content"
+        fail_msg: >-
+          The home page does not render the `{{ anonymousoverflow_molecule_theme }}`
+          theme that THEME was set to:
+          {{ anonymousoverflow_home.content | regex_search('data-theme="[^"]*"') }}
+        success_msg: >-
+          The home page renders `data-theme="{{ anonymousoverflow_molecule_theme }}"`, so
+          THEME arrived through
+          `anonymousoverflow_environment_variables_additional_variables`
+
+    # APP_URL is what AnonymousOverflow puts in front of whatever StackOverflow
+    # says a shortened link points at. The stub answers with a fixed path, so
+    # the whole Location header is predictable, and the role's own base URL is
+    # the only thing that could have produced its first half.
+    - name: Ask AnonymousOverflow to resolve a shortened link
+      ansible.builtin.uri:
+        url: "{{ anonymousoverflow_verify_url }}{{ anonymousoverflow_verify_shortlink_path }}"
+        follow_redirects: none
+        status_code: [302]
+      register: anonymousoverflow_shortlink
+
+    - name: Assert AnonymousOverflow redirects using the base URL the role configured
+      ansible.builtin.assert:
+        that:
+          - anonymousoverflow_shortlink.location == anonymousoverflow_verify_app_url ~ anonymousoverflow_molecule_stub_question_path
+        fail_msg: >-
+          AnonymousOverflow redirected a shortened link to
+          {{ anonymousoverflow_shortlink.location }}, not to
+          {{ anonymousoverflow_verify_app_url }}{{ anonymousoverflow_molecule_stub_question_path }}
+        success_msg: >-
+          AnonymousOverflow redirected a shortened link to
+          {{ anonymousoverflow_shortlink.location }}, so APP_URL reached the
+          process as the {{ anonymousoverflow_verify_app_url }} the role derives
+
+    # The image proxy verifies the token with JWT_SIGNING_SECRET and only then
+    # fetches the image. So a token signed with the role's secret being honoured
+    # - and one signed with anything else being refused - is the value of that
+    # secret arriving, not merely the variable being non-empty.
+    - name: Offer AnonymousOverflow a token signed with the secret the role configured
+      ansible.builtin.uri:
+        url: "{{ anonymousoverflow_verify_url }}/proxy?auth={{ anonymousoverflow_role_token.stdout }}"
+        return_content: true
+        follow_redirects: none
+        status_code: [200, 400]
+      register: anonymousoverflow_proxy_accepted
+
+    - name: Offer AnonymousOverflow a token signed with a different secret
+      ansible.builtin.uri:
+        url: "{{ anonymousoverflow_verify_url }}/proxy?auth={{ anonymousoverflow_other_token.stdout }}"
+        return_content: true
+        follow_redirects: none
+        status_code: [200, 400]
+      register: anonymousoverflow_proxy_refused
+
+    - name: Assert AnonymousOverflow holds the signing secret the role configured
+      ansible.builtin.assert:
+        that:
+          - anonymousoverflow_proxy_accepted.status == 200
+          - anonymousoverflow_proxy_accepted.content == anonymousoverflow_molecule_stub_image_body
+          - anonymousoverflow_proxy_refused.status == 400
+        fail_msg: >-
+          The image proxy did not behave as a process holding
+          JWT_SIGNING_SECRET={{ anonymousoverflow_environment_variable_jwt_signing_secret }}
+          would: the role's token got
+          {{ anonymousoverflow_proxy_accepted.status }}
+          ({{ anonymousoverflow_proxy_accepted.content | default('') | trim }}),
+          a token signed with a different secret got
+          {{ anonymousoverflow_proxy_refused.status }}
+        success_msg: >-
+          The image proxy accepted a token signed with the role's
+          JWT_SIGNING_SECRET and fetched the image behind it, and refused one
+          signed with a different secret - so the secret reached the process
+
+    - name: Ask AnonymousOverflow for more than its default rate limit would allow
+      ansible.builtin.uri:
+        url: "{{ anonymousoverflow_verify_url }}/version"
+        return_content: true
+        follow_redirects: none
+        status_code: [200, 429]
+      register: anonymousoverflow_burst
+      loop: "{{ anonymousoverflow_verify_burst }}"
+      loop_control:
+        label: "request {{ item }}"
+
+    - name: Assert the rate limiter the role turns off is off
+      ansible.builtin.assert:
+        that:
+          - anonymousoverflow_burst.results | map(attribute='status') | select('eq', 429) | list | length == 0
+        fail_msg: >-
+          AnonymousOverflow rate limited
+          {{ anonymousoverflow_burst.results | map(attribute='status') | select('eq', 429) | list | length }}
+          of {{ anonymousoverflow_verify_burst | length }} requests even though
+          DISABLE_RATELIMIT was set
+        success_msg: >-
+          AnonymousOverflow answered all
+          {{ anonymousoverflow_verify_burst | length }} requests without rate
+          limiting, so DISABLE_RATELIMIT arrived through
+          `anonymousoverflow_environment_variables_additional_variables` too
+
+    # ------------------------------------------------------------------
+    # The container runs the image its leaf variable names
+    # ------------------------------------------------------------------
+
+    # `anonymousoverflow_version` is the literal `release` and will stay that
+    # way for as long as AnonymousOverflow publishes no versioned images (see
+    # defaults/main.yml and bin/compute-next-tag.sh), so the tag is all the leaf
+    # variable can be checked against.
+    #
+    # `release` moves, so two more links are checked: that the container was
+    # created from the image that tag points at right now (and not a stale one
+    # left over from an earlier pull), and that the version the running process
+    # reports on `/version` is the one it renders into its own home page. The
+    # image's `org.opencontainers.image.version` label is deliberately not used:
+    # the publishing workflow builds it from the branch name, so it reads
+    # `release` rather than a version.
+    - name: Read the image the AnonymousOverflow container runs
+      ansible.builtin.command:
+        cmd: "docker image inspect {{ anonymousoverflow_container.Config.Image }} --format {{ '{{.Id}}' }}"
+      register: anonymousoverflow_image_id
+      changed_when: false
+
+    - name: Ask AnonymousOverflow which version it is
+      ansible.builtin.uri:
+        url: "{{ anonymousoverflow_verify_url }}/version"
+        return_content: true
+        follow_redirects: none
+        status_code: [200]
+      register: anonymousoverflow_version_response
+
+    - name: Assert the AnonymousOverflow container runs the image the role names
+      vars:
+        anonymousoverflow_reported_version: "{{ anonymousoverflow_version_response.content | trim }}"
+      ansible.builtin.assert:
+        that:
+          - anonymousoverflow_container.Config.Image | split(':') | last == anonymousoverflow_defaults.anonymousoverflow_version
+          - anonymousoverflow_container.Image == anonymousoverflow_image_id.stdout | trim
+          - anonymousoverflow_reported_version is match('^[0-9]+[.][0-9]+([.][0-9]+)?$')
+          - "'Version ' ~ anonymousoverflow_reported_version in anonymousoverflow_home.content"
+        fail_msg: >-
+          The running AnonymousOverflow does not match what the role installs:
+          container image {{ anonymousoverflow_container.Config.Image }}
+          (expected the `{{ anonymousoverflow_defaults.anonymousoverflow_version }}`
+          tag), created from {{ anonymousoverflow_container.Image }} while that
+          tag now points at {{ anonymousoverflow_image_id.stdout | trim }},
+          process reports {{ anonymousoverflow_reported_version }} on /version
+        success_msg: >-
+          The container runs {{ anonymousoverflow_container.Config.Image }}, the
+          tag `anonymousoverflow_version` names, it was created from the image
+          that tag points at, and the process inside it reports itself as
+          AnonymousOverflow {{ anonymousoverflow_reported_version }} on both
+          /version and its home page
+
+    # ------------------------------------------------------------------
+    # The container is shaped the way the role's unit file says
+    # ------------------------------------------------------------------
+
+    - name: Assert the AnonymousOverflow container is hardened and wired up as the role specifies
+      vars:
+        anonymousoverflow_verify_ca_mount: >-
+          {{
+            anonymousoverflow_container.Mounts
+            | selectattr('Destination', 'eq', anonymousoverflow_molecule_ca_path_in_container)
+            | list
+          }}
+      ansible.builtin.assert:
+        that:
+          - anonymousoverflow_container.HostConfig.ReadonlyRootfs
+          - anonymousoverflow_container.HostConfig.CapDrop == ['ALL']
+          - anonymousoverflow_container.Config.User == anonymousoverflow_uid ~ ':' ~ anonymousoverflow_gid
+          - anonymousoverflow_container.NetworkSettings.Networks.keys() | list == [anonymousoverflow_molecule_container_network]
+          # `anonymousoverflow_container_additional_volumes` was declared by the
+          # role but never rendered into the unit file, so this is what keeps
+          # the mount the scenario depends on from silently disappearing again.
+          - anonymousoverflow_verify_ca_mount | length == 1
+          - anonymousoverflow_verify_ca_mount[0].Source == anonymousoverflow_molecule_ca_path
+          - not anonymousoverflow_verify_ca_mount[0].RW
+        fail_msg: >-
+          The AnonymousOverflow container is not shaped as the unit file
+          specifies: read-only rootfs={{ anonymousoverflow_container.HostConfig.ReadonlyRootfs }},
+          dropped capabilities={{ anonymousoverflow_container.HostConfig.CapDrop }},
+          user={{ anonymousoverflow_container.Config.User }},
+          networks={{ anonymousoverflow_container.NetworkSettings.Networks.keys() | list }},
+          mounts={{ anonymousoverflow_container.Mounts }}
+        success_msg: >-
+          The AnonymousOverflow container runs read-only as
+          {{ anonymousoverflow_container.Config.User }} with all capabilities
+          dropped, on the {{ anonymousoverflow_molecule_container_network }}
+          network, with the role's additional volume mounted read-only at
+          {{ anonymousoverflow_molecule_ca_path_in_container }}
+
+    # ------------------------------------------------------------------
+    # Nothing was quietly restarting while all of that was being checked
+    # ------------------------------------------------------------------
+
+    # `Restart=always` means the unit reads `active` while it is crash-looping,
+    # and a crash loop is what an AnonymousOverflow with an incomplete env file
+    # settles into - it panics on a missing APP_URL or JWT_SIGNING_SECRET. So
+    # `active` on its own says very little here, and the window has to be
+    # watched with everything already answering.
+    - name: Sample the restart counter
+      ansible.builtin.systemd_service:
+        name: anonymousoverflow.service
+      register: anonymousoverflow_restarts_before
+
+    # Comfortably longer than the unit's `RestartSec=30`, so a crash loop has to
+    # tick at least once inside the window.
+    - name: Watch the service for 45 seconds
+      ansible.builtin.pause:
+        seconds: 45
+
+    - name: Sample the restart counter again
+      ansible.builtin.systemd_service:
+        name: anonymousoverflow.service
+      register: anonymousoverflow_restarts_after
+
+    - name: Assert AnonymousOverflow did not restart while it was up
+      ansible.builtin.assert:
+        that: anonymousoverflow_restarts_after.status.NRestarts == anonymousoverflow_restarts_before.status.NRestarts
+        fail_msg: >-
+          AnonymousOverflow restarted while it was supposedly up, so `active`
+          was hiding a crash loop (restarts went from
+          {{ anonymousoverflow_restarts_before.status.NRestarts }} to
+          {{ anonymousoverflow_restarts_after.status.NRestarts }})
+        success_msg: >-
+          AnonymousOverflow did not restart over 45 seconds of watching
+          (restarts so far: {{ anonymousoverflow_restarts_after.status.NRestarts }})
+
+    - name: Show the AnonymousOverflow verification summary
       ansible.builtin.debug:
         msg:
-          - "AnonymousOverflow systemd: {{ anonymousoverflow_service.status.ActiveState }}"
-          - "AnonymousOverflow HTTP: {{ anonymousoverflow_endpoint.status }}"
+          - "systemd: anonymousoverflow.service is {{ anonymousoverflow_service.status.ActiveState }}"
+          - "unconfigured image: exit {{ anonymousoverflow_control_bare.rc }}, {{ anonymousoverflow_control_bare.stderr_lines | first | default('') }}"
+          - "unconfigured instance: theme={{ anonymousoverflow_control_home.content | regex_search('data-theme=\"[^\"]*\"') }}, redirect={{ anonymousoverflow_control_shortlink.location }}, image proxy={{ anonymousoverflow_control_proxy.status }}"
+          - "configured: theme={{ anonymousoverflow_home.content | regex_search('data-theme=\"[^\"]*\"') }}, redirect={{ anonymousoverflow_shortlink.location }}, image proxy={{ anonymousoverflow_proxy_accepted.status }}"
+          - "listening: {{ anonymousoverflow_journal.stdout_lines | select('search', 'Listening on') | list | last | default('') }}"
+          - "image: {{ anonymousoverflow_container.Config.Image }} ({{ anonymousoverflow_container.Image }}), process reports {{ anonymousoverflow_version_response.content | trim }}"
+          - "container: read-only={{ anonymousoverflow_container.HostConfig.ReadonlyRootfs }}, user={{ anonymousoverflow_container.Config.User }}, capabilities dropped={{ anonymousoverflow_container.HostConfig.CapDrop }}"
+          - "restarts: {{ anonymousoverflow_restarts_after.status.NRestarts }}"

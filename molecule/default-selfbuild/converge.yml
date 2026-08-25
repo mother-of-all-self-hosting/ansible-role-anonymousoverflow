@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 Slavi Pantaleev
 # SPDX-FileCopyrightText: 2026 spatterlight
 # SPDX-FileCopyrightText: 2026 Suguru Hirahara
 #
@@ -20,7 +21,7 @@
       loop_control:
         loop_var: role_name
 
-- name: Ensure AnonymousOverflow service is started
+- name: Ensure services are started
   hosts: all
   become: true
   gather_facts: false
@@ -29,7 +30,9 @@
       ansible.builtin.systemd_service:
         daemon_reload: true
 
+    # See the equivalent task in the `default` scenario for why this acts on
+    # `anonymousoverflow_restart_necessary` rather than always starting.
     - name: Ensure AnonymousOverflow systemd service is started
       ansible.builtin.systemd_service:
         name: anonymousoverflow.service
-        state: started
+        state: "{{ 'restarted' if anonymousoverflow_restart_necessary | bool else 'started' }}"

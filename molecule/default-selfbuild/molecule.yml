@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 Slavi Pantaleev
 # SPDX-FileCopyrightText: 2026 spatterlight
 # SPDX-FileCopyrightText: 2026 Suguru Hirahara
 #
@@ -31,17 +32,38 @@ provisioner:
         # Helper variables
         anonymousoverflow_debug_service_enabled: false
 
+        # The container and network names the role derives from its identifier,
+        # and the path it installs into. Role defaults are not in scope in every
+        # play, so they are spelled out.
+        anonymousoverflow_molecule_container: anonymousoverflow
+        anonymousoverflow_molecule_container_network: anonymousoverflow
+        anonymousoverflow_molecule_base_path: /anonymousoverflow
+
+        anonymousoverflow_molecule_host_port: 8080
+
+        # The theme the role is made to configure. Anything but `auto`, which is
+        # what AnonymousOverflow renders when nothing sets THEME. This scenario
+        # is about where the image came from rather than about configuration
+        # reach, which the `default` scenario covers thoroughly, but a
+        # self-built image that ignores its env file would still be a broken
+        # install.
+        anonymousoverflow_molecule_theme: dark
+
         # Variables for AnonymousOverflow
         anonymousoverflow_uid: 1000
         anonymousoverflow_gid: 1000
         anonymousoverflow_scheme: http
-        anonymousoverflow_hostname: localhost
+        anonymousoverflow_hostname: anonymousoverflow.molecule.example.com
         anonymousoverflow_container_labels_traefik_enabled: false
-        anonymousoverflow_container_http_host_bind_port: 8080
-        anonymousoverflow_base_url: http://localhost:8080/
-        anonymousoverflow_environment_variable_jwt_signing_secret: secret
+        anonymousoverflow_container_http_host_bind_port: 127.0.0.1:8080
+        anonymousoverflow_environment_variable_jwt_signing_secret: molecule-jwt-signing-secret-0123456789
 
-        # Test self-building
+        anonymousoverflow_environment_variables_additional_variables: |
+          THEME={{ anonymousoverflow_molecule_theme }}
+          DISABLE_RATELIMIT=true
+
+        # What this scenario is for: build the image from AnonymousOverflow's
+        # own Dockerfile instead of pulling it.
         anonymousoverflow_container_image_self_build: true
   env:
     # Workaround for https://github.com/ansible/molecule/issues/4391

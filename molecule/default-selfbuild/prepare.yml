@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 Slavi Pantaleev
 # SPDX-FileCopyrightText: 2026 spatterlight
 # SPDX-FileCopyrightText: 2026 Suguru Hirahara
 #
@@ -15,9 +16,12 @@
         cache_valid_time: 600
       when: ansible_facts["os_family"] == 'Debian'
 
+    # `git` is what the role uses to fetch the sources it builds from, and the
+    # verification reads that checkout back afterwards.
     - name: Ensure required packages are installed for AnonymousOverflow Molecule tests preparation
       ansible.builtin.package:
         name:
+          - git
           - python3-requests
         state: present
 

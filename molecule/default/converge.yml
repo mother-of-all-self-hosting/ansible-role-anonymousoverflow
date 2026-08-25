@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 Slavi Pantaleev
 # SPDX-FileCopyrightText: 2026 spatterlight
 # SPDX-FileCopyrightText: 2026 Suguru Hirahara
 #
@@ -20,7 +21,49 @@
       loop_control:
         loop_var: role_name
 
-- name: Ensure AnonymousOverflow service is started
+# The stub joins the container network that the role creates, so it can only be
+# started once the role has run. AnonymousOverflow does not need it in order to
+# start - it only reaches for StackOverflow when a request asks it to - so the
+# ordering against the service does not matter.
+- name: Ensure the StackOverflow stub is running
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Check whether the StackOverflow stub is already running
+      ansible.builtin.command:
+        argv:
+          - docker
+          - container
+          - inspect
+          - "{{ anonymousoverflow_molecule_stub_container }}"
+      register: anonymousoverflow_molecule_stub_state
+      changed_when: false
+      failed_when: false
+
+    - name: Ensure the StackOverflow stub container is started
+      when: anonymousoverflow_molecule_stub_state.rc != 0
+      ansible.builtin.command:
+        argv:
+          - docker
+          - run
+          - --detach
+          - --name
+          - "{{ anonymousoverflow_molecule_stub_container }}"
+          - --network
+          - "{{ anonymousoverflow_molecule_container_network }}"
+          # What makes Docker's embedded resolver hand this container's address
+          # to anything on the network that looks up www.stackoverflow.com.
+          - --network-alias
+          - www.stackoverflow.com
+          - --volume
+          - "{{ anonymousoverflow_molecule_stub_path }}/nginx.conf:/etc/nginx/nginx.conf:ro"
+          - --volume
+          - "{{ anonymousoverflow_molecule_stub_path }}:/stub:ro"
+          - "{{ anonymousoverflow_molecule_stub_image }}"
+      changed_when: true
+
+- name: Ensure services are started
   hosts: all
   become: true
   gather_facts: false
@@ -29,7 +72,18 @@
       ansible.builtin.systemd_service:
         daemon_reload: true
 
+    # `anonymousoverflow_restart_necessary` is what the role sets when it
+    # changed a configuration file, the unit file or the container image, and
+    # acting on it is what the systemd service manager role does in a real
+    # playbook run. It matters here because AnonymousOverflow reads its
+    # environment once at startup: without this, a converge onto an already
+    # running instance would leave the old process in place and the verification
+    # would be reading a stale one.
+    #
+    # It stays idempotent - a converge that changes nothing leaves
+    # `anonymousoverflow_restart_necessary` false, and `started` on a running
+    # service is not a change.
     - name: Ensure AnonymousOverflow systemd service is started
       ansible.builtin.systemd_service:
         name: anonymousoverflow.service
-        state: started
+        state: "{{ 'restarted' if anonymousoverflow_restart_necessary | bool else 'started' }}"

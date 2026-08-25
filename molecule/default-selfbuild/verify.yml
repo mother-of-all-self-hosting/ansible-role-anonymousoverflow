@@ -1,53 +1,228 @@
+# SPDX-FileCopyrightText: 2026 Slavi Pantaleev
 # SPDX-FileCopyrightText: 2026 spatterlight
 # SPDX-FileCopyrightText: 2026 Suguru Hirahara
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 ---
-- name: Verify AnonymousOverflow systemd service
+# What this scenario is for is the self-building path through tasks/install.yml,
+# which the `default` scenario never takes: cloning AnonymousOverflow's sources
+# and building its Dockerfile, instead of pulling a published image. So the
+# checks here are about where the running image came from, and about the running
+# process matching the sources it was built out of. The thorough
+# configuration-reach and negative-control work lives in the `default` scenario
+# and is deliberately not repeated.
+- name: Verify a self-built AnonymousOverflow
   hosts: all
   become: true
   gather_facts: false
+
+  vars:
+    anonymousoverflow_verify_url: "http://127.0.0.1:{{ anonymousoverflow_molecule_host_port }}"
+    anonymousoverflow_verify_src_path: "{{ anonymousoverflow_molecule_base_path }}/docker-src"
+
   tasks:
-    - name: Wait for AnonymousOverflow service to become active (up to 180s)
-      ansible.builtin.systemd:
+    # Only leaf literals may be read out of this - anything Jinja-derived would
+    # be resolved against an empty namespace.
+    - name: Load the AnonymousOverflow role defaults
+      ansible.builtin.include_vars:
+        file: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}/defaults/main.yml"
+        name: anonymousoverflow_defaults
+
+    # ------------------------------------------------------------------
+    # The unit is up
+    # ------------------------------------------------------------------
+
+    - name: Wait for the AnonymousOverflow systemd service to become active (up to 180s)
+      ansible.builtin.systemd_service:
         name: anonymousoverflow.service
       register: anonymousoverflow_service
       until: anonymousoverflow_service.status.ActiveState == 'active'
       retries: 36
       delay: 5
 
-    - name: Assert AnonymousOverflow service is active
+    - name: Assert the AnonymousOverflow systemd service is active
       ansible.builtin.assert:
         that: anonymousoverflow_service.status.ActiveState == 'active'
-        fail_msg: "anonymousoverflow.service not active ({{ anonymousoverflow_service.status.ActiveState }})"
-        success_msg: "anonymousoverflow.service is active"
+        fail_msg: "The AnonymousOverflow systemd service is {{ anonymousoverflow_service.status.ActiveState }}"
+        success_msg: "The AnonymousOverflow systemd service is active"
 
-    - name: Retrieve AnonymousOverflow service log for debugging
+    - name: Retrieve the service logs for debugging
       when: anonymousoverflow_debug_service_enabled | bool
       ansible.builtin.command:
         cmd: journalctl -xeu anonymousoverflow.service
       changed_when: false
 
-    - name: Wait for AnonymousOverflow HTTP endpoint to respond (up to 10m)
+    - name: Wait for AnonymousOverflow to answer (up to 3m)
       ansible.builtin.uri:
-        url: "http://localhost:8080/"
-        method: GET
-        status_code: [200, 302]
+        url: "{{ anonymousoverflow_verify_url }}/"
+        return_content: true
         follow_redirects: none
-      register: anonymousoverflow_endpoint
-      until: anonymousoverflow_endpoint.status in [200, 302]
-      retries: 120
+        status_code: [200, -1]
+      register: anonymousoverflow_home
+      until: anonymousoverflow_home.status == 200
+      retries: 36
       delay: 5
 
-    - name: Assert AnonymousOverflow HTTP endpoint responds
-      ansible.builtin.assert:
-        that: anonymousoverflow_endpoint.status in [200, 302]
-        fail_msg: "AnonymousOverflow did not respond as expected ({{ anonymousoverflow_endpoint.status | default('no response') }})"
-        success_msg: "AnonymousOverflow responded with {{ anonymousoverflow_endpoint.status }}"
+    # ------------------------------------------------------------------
+    # The image was built here, not pulled
+    # ------------------------------------------------------------------
 
-    - name: Show AnonymousOverflow systemd service status summary
+    - name: Read the AnonymousOverflow container the role created
+      ansible.builtin.command:
+        cmd: "docker inspect {{ anonymousoverflow_molecule_container }}"
+      register: anonymousoverflow_container_raw
+      changed_when: false
+
+    - name: Make sense of the AnonymousOverflow container
+      ansible.builtin.set_fact:
+        anonymousoverflow_container: "{{ (anonymousoverflow_container_raw.stdout | from_json)[0] }}"
+
+    # A pulled image carries a repository digest; one that was only ever built
+    # locally does not. This is what separates this scenario from the `default`
+    # one - without it, a role that silently fell back to pulling the published
+    # image would pass here just as well.
+    - name: Read the image the AnonymousOverflow container runs
+      ansible.builtin.command:
+        cmd: "docker image inspect {{ anonymousoverflow_container.Config.Image }}"
+      register: anonymousoverflow_image_raw
+      changed_when: false
+
+    - name: Make sense of the image
+      ansible.builtin.set_fact:
+        anonymousoverflow_image: "{{ (anonymousoverflow_image_raw.stdout | from_json)[0] }}"
+
+    - name: Assert the AnonymousOverflow container runs a locally built image
+      ansible.builtin.assert:
+        that:
+          # The self-build name, which unlike the pulled one carries no registry
+          # prefix - so this also fails if self-building silently did not happen.
+          - anonymousoverflow_container.Config.Image == 'httpjamesm/anonymousoverflow:' ~ anonymousoverflow_defaults.anonymousoverflow_version
+          - anonymousoverflow_container.Image == anonymousoverflow_image.Id
+          - anonymousoverflow_image.RepoDigests | length == 0
+        fail_msg: >-
+          The container is not running an image that was built here: image
+          {{ anonymousoverflow_container.Config.Image }}
+          ({{ anonymousoverflow_container.Image }}, repository digests
+          {{ anonymousoverflow_image.RepoDigests }})
+        success_msg: >-
+          The container runs {{ anonymousoverflow_container.Config.Image }},
+          which carries no repository digest - it was built from
+          AnonymousOverflow's Dockerfile here rather than pulled
+
+    # ------------------------------------------------------------------
+    # The running process is the sources that were built
+    # ------------------------------------------------------------------
+
+    # Read off disk rather than asked of `git`, so that this stays a check on
+    # the state the role left behind and needs no shelling out.
+    #
+    # `anonymousoverflow_container_image_self_build_repo_version` resolves to
+    # `anonymousoverflow_version`, which is the `release` branch - so the
+    # checkout sits on a branch and .git/HEAD names it. Pinning a tag instead
+    # would leave HEAD detached and this assertion would have to be revisited,
+    # which is the right way for that to come up.
+    - name: Read the ref the role checked out to build from
+      ansible.builtin.slurp:
+        src: "{{ anonymousoverflow_verify_src_path }}/.git/HEAD"
+      register: anonymousoverflow_src_head
+
+    # AnonymousOverflow compiles its version in as a constant
+    # (`config/version.go`) and serves it on `/version`, so this ties the
+    # answering process to the very working tree the role built from - not to a
+    # tag, a label or a leftover image.
+    - name: Read the version compiled into the sources
+      ansible.builtin.slurp:
+        src: "{{ anonymousoverflow_verify_src_path }}/config/version.go"
+      register: anonymousoverflow_src_version_file
+
+    - name: Ask AnonymousOverflow which version it is
+      ansible.builtin.uri:
+        url: "{{ anonymousoverflow_verify_url }}/version"
+        return_content: true
+        follow_redirects: none
+        status_code: [200]
+      register: anonymousoverflow_version_response
+
+    - name: Assert the running AnonymousOverflow is the sources the role built
+      vars:
+        anonymousoverflow_src_ref: "{{ anonymousoverflow_src_head.content | b64decode | trim }}"
+        anonymousoverflow_src_version: "{{ (anonymousoverflow_src_version_file.content | b64decode | regex_search('Version\\s*=\\s*\"([^\"]+)\"', '\\1'))[0] }}"
+        anonymousoverflow_reported_version: "{{ anonymousoverflow_version_response.content | trim }}"
+      ansible.builtin.assert:
+        that:
+          - anonymousoverflow_src_ref == 'ref: refs/heads/' ~ anonymousoverflow_defaults.anonymousoverflow_version
+          - anonymousoverflow_reported_version == anonymousoverflow_src_version
+          - "'Version ' ~ anonymousoverflow_reported_version in anonymousoverflow_home.content"
+        fail_msg: >-
+          The running AnonymousOverflow is not the sources that were built: the
+          checkout is on `{{ anonymousoverflow_src_ref }}` rather than
+          `{{ anonymousoverflow_defaults.anonymousoverflow_version }}`, its
+          sources compile in {{ anonymousoverflow_src_version }} and the process
+          reports {{ anonymousoverflow_reported_version }}
+        success_msg: >-
+          The checkout the image was built from is on
+          `{{ anonymousoverflow_defaults.anonymousoverflow_version }}`, the ref
+          `anonymousoverflow_version` names, and the running process reports the
+          version those sources compile in
+          ({{ anonymousoverflow_reported_version }})
+
+    # ------------------------------------------------------------------
+    # The env file reaches the self-built process too
+    # ------------------------------------------------------------------
+
+    - name: Assert the theme the role configured reaches the rendered page
+      ansible.builtin.assert:
+        that:
+          - "'data-theme=\"' ~ anonymousoverflow_molecule_theme ~ '\"' in anonymousoverflow_home.content"
+        fail_msg: >-
+          The home page does not render the `{{ anonymousoverflow_molecule_theme }}`
+          theme that THEME was set to:
+          {{ anonymousoverflow_home.content | regex_search('data-theme="[^"]*"') }}
+        success_msg: >-
+          The self-built AnonymousOverflow renders
+          `data-theme="{{ anonymousoverflow_molecule_theme }}"`, so the role's
+          env file reaches it as well
+
+    # ------------------------------------------------------------------
+    # Nothing was quietly restarting while all of that was being checked
+    # ------------------------------------------------------------------
+
+    # `Restart=always` means the unit reads `active` while it is crash-looping,
+    # which is what an AnonymousOverflow with an incomplete env file settles into.
+    - name: Sample the restart counter
+      ansible.builtin.systemd_service:
+        name: anonymousoverflow.service
+      register: anonymousoverflow_restarts_before
+
+    # Comfortably longer than the unit's `RestartSec=30`.
+    - name: Watch the service for 45 seconds
+      ansible.builtin.pause:
+        seconds: 45
+
+    - name: Sample the restart counter again
+      ansible.builtin.systemd_service:
+        name: anonymousoverflow.service
+      register: anonymousoverflow_restarts_after
+
+    - name: Assert AnonymousOverflow did not restart while it was up
+      ansible.builtin.assert:
+        that: anonymousoverflow_restarts_after.status.NRestarts == anonymousoverflow_restarts_before.status.NRestarts
+        fail_msg: >-
+          AnonymousOverflow restarted while it was supposedly up, so `active`
+          was hiding a crash loop (restarts went from
+          {{ anonymousoverflow_restarts_before.status.NRestarts }} to
+          {{ anonymousoverflow_restarts_after.status.NRestarts }})
+        success_msg: >-
+          AnonymousOverflow did not restart over 45 seconds of watching
+          (restarts so far: {{ anonymousoverflow_restarts_after.status.NRestarts }})
+
+    - name: Show the AnonymousOverflow verification summary
       ansible.builtin.debug:
         msg:
-          - "AnonymousOverflow systemd: {{ anonymousoverflow_service.status.ActiveState }}"
-          - "AnonymousOverflow HTTP: {{ anonymousoverflow_endpoint.status }}"
+          - "systemd: anonymousoverflow.service is {{ anonymousoverflow_service.status.ActiveState }}"
+          - "image: {{ anonymousoverflow_container.Config.Image }} ({{ anonymousoverflow_container.Image }}), repository digests {{ anonymousoverflow_image.RepoDigests }}"
+          - "sources: {{ anonymousoverflow_verify_src_path }} on {{ anonymousoverflow_src_head.content | b64decode | trim }}"
+          - "process reports: {{ anonymousoverflow_version_response.content | trim }}"
+          - "theme: {{ anonymousoverflow_home.content | regex_search('data-theme=\"[^\"]*\"') }}"
+          - "restarts: {{ anonymousoverflow_restarts_after.status.NRestarts }}"
