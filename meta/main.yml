@@ -3,7 +3,7 @@ galaxy_info:
   author: Suguru Hirahara
   company: progressiv
   role_name: anonymousoverflow
-  namespace: progressiv
+  namespace: mash
   description: AnonymousOverflow
   platforms:
     - name: Debian
