@@ -156,6 +156,38 @@
           {{ anonymousoverflow_molecule_ca_path_in_container }}
 
     # ------------------------------------------------------------------
+    # The process listens where the role said it should
+    # ------------------------------------------------------------------
+
+    # AnonymousOverflow announces the address it binds on startup. The unit runs
+    # the container with `--log-driver=none` and `docker start --attach`, so that
+    # line arrives in the journal rather than in `docker logs`.
+    #
+    # This is checked before anything is probed over HTTP, because a process
+    # that is not listening where the role published and routed to would
+    # otherwise show up as a probe timing out three minutes later.
+    - name: Read what AnonymousOverflow announced on startup
+      ansible.builtin.command:
+        cmd: journalctl --no-pager --unit anonymousoverflow.service
+      register: anonymousoverflow_journal
+      changed_when: false
+
+    - name: Assert AnonymousOverflow listens on the port the role configured
+      ansible.builtin.assert:
+        that:
+          - "'Listening on 0.0.0.0:' ~ anonymousoverflow_container_http_port ~ '.' in anonymousoverflow_journal.stdout"
+          - "'Listening on 0.0.0.0:' ~ anonymousoverflow_verify_upstream_default_port ~ '.' not in anonymousoverflow_journal.stdout"
+        fail_msg: >-
+          AnonymousOverflow is not listening on
+          {{ anonymousoverflow_container_http_port }}, which is what
+          `anonymousoverflow_container_http_port` published and routed to:
+          {{ anonymousoverflow_journal.stdout_lines | select('search', 'Listening on') | list }}
+        success_msg: >-
+          AnonymousOverflow announced that it listens on
+          0.0.0.0:{{ anonymousoverflow_container_http_port }}, the port
+          `anonymousoverflow_container_http_port` names
+
+    # ------------------------------------------------------------------
     # Two image-proxy tokens, to be offered to everything below
     # ------------------------------------------------------------------
 
@@ -354,13 +386,9 @@
           everything below is the role's doing
 
     # ------------------------------------------------------------------
-    # The role's AnonymousOverflow is up, on the port the role named
+    # The role's AnonymousOverflow answers behind the port the unit published
     # ------------------------------------------------------------------
 
-    # This reaching anything is the first half of the port evidence: the unit
-    # published the container's `anonymousoverflow_container_http_port`, so if
-    # the process were still on AnonymousOverflow's own default there would be
-    # nothing behind the published port at all.
     - name: Wait for AnonymousOverflow to answer (up to 3m)
       ansible.builtin.uri:
         url: "{{ anonymousoverflow_verify_url }}/"
@@ -371,31 +399,6 @@
       until: anonymousoverflow_home.status == 200
       retries: 36
       delay: 5
-
-    # The second half, from the process itself: AnonymousOverflow announces the
-    # address it binds on startup. The unit runs the container with
-    # `--log-driver=none` and `docker start --attach`, so that line arrives in
-    # the journal rather than in `docker logs`.
-    - name: Read what AnonymousOverflow announced on startup
-      ansible.builtin.command:
-        cmd: journalctl --no-pager --unit anonymousoverflow.service
-      register: anonymousoverflow_journal
-      changed_when: false
-
-    - name: Assert AnonymousOverflow listens on the port the role configured
-      ansible.builtin.assert:
-        that:
-          - "'Listening on 0.0.0.0:' ~ anonymousoverflow_container_http_port ~ '.' in anonymousoverflow_journal.stdout"
-          - "'Listening on 0.0.0.0:' ~ anonymousoverflow_verify_upstream_default_port ~ '.' not in anonymousoverflow_journal.stdout"
-        fail_msg: >-
-          AnonymousOverflow is not listening on
-          {{ anonymousoverflow_container_http_port }}, which is what
-          `anonymousoverflow_container_http_port` published and routed to:
-          {{ anonymousoverflow_journal.stdout_lines | select('search', 'Listening on') | list }}
-        success_msg: >-
-          AnonymousOverflow announced that it listens on
-          0.0.0.0:{{ anonymousoverflow_container_http_port }}, the port
-          `anonymousoverflow_container_http_port` names, and answers behind it
 
     # ------------------------------------------------------------------
     # Configuration reaches the process, not just the files on disk
