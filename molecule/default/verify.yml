@@ -23,6 +23,7 @@
 
     # The name carries both the role and the scenario, like the platform does,
     # so a leftover container can never be mistaken for another scenario's.
+    anonymousoverflow_verify_bare_container: "{{ inventory_hostname }}-unconfigured"
     anonymousoverflow_verify_control_container: "{{ inventory_hostname }}-negative-control"
     anonymousoverflow_verify_control_url: "http://127.0.0.1:{{ anonymousoverflow_molecule_control_port }}"
 
@@ -188,14 +189,37 @@
     # (see `env.RunChecks`), so the image cannot serve a wizard, a placeholder
     # or anything else that a probe might mistake for a working install. The
     # env file the role writes is load-bearing, and this is what says so.
+    #
+    # Run under `timeout`, because the failure mode being guarded against is an
+    # image that *does* start: without it, a regression here would hang the job
+    # rather than fail it. The 124 that `timeout` returns still satisfies the
+    # "did not exit successfully" half of the assertion below, which is why the
+    # panic itself has to be looked for as well.
     - name: Run the image the role installs with no configuration at all
       ansible.builtin.command:
         argv:
+          - timeout
+          - "30"
           - docker
           - run
           - --rm
+          - --name
+          - "{{ anonymousoverflow_verify_bare_container }}"
           - "{{ anonymousoverflow_container.Config.Image }}"
       register: anonymousoverflow_control_bare
+      changed_when: false
+      failed_when: false
+
+    # `timeout` signals the `docker run` client, which passes it on to the
+    # container - but if any of that goes wrong, a container left behind here
+    # would hold on to the name and break the next run.
+    - name: Make sure nothing is left of that
+      ansible.builtin.command:
+        argv:
+          - docker
+          - rm
+          - --force
+          - "{{ anonymousoverflow_verify_bare_container }}"
       changed_when: false
       failed_when: false
 
