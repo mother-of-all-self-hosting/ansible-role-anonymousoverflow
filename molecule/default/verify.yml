@@ -109,7 +109,7 @@
 
     - name: Read the AnonymousOverflow container the role created
       ansible.builtin.command:
-        cmd: "docker inspect {{ anonymousoverflow_molecule_container }}"
+        cmd: "docker container inspect {{ anonymousoverflow_molecule_container }}"
       register: anonymousoverflow_container_raw
       changed_when: false
 
