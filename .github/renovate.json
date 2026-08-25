@@ -1,5 +1,12 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": [
+    "This role deliberately does not extend the shared `patch-automerge` preset.",
+    "AnonymousOverflow publishes no versioned container images: ghcr.io/httpjamesm/anonymousoverflow carries exactly one tag, `release`. Its `.github/workflows/docker-image.yml` runs on pushes to the `release` branch and hands `docker/metadata-action` no `tags` input at all, so the branch name is the only tag it ever produces - even though the project does cut git tags (v1.1 through v1.14.0 at the time of writing). `anonymousoverflow_version` in defaults/main.yml is therefore the literal `release`, carries no `# renovate:` annotation, and there is no patch-level bump for the preset to automerge - there is nothing here for Renovate's custom manager to track at all.",
+    "Nor would an annotation pointing at the project's git tags be honest: the `release` image has not been rebuilt since 2024-08-24 (its `org.opencontainers.image.revision` is the head of the `release` branch), so a `1.14.0` in defaults/main.yml would name an image tag that does not exist.",
+    "What Renovate does track here (GitHub Actions, prek hooks, mise tools, the Molecule Python requirements and Ansible roles) is already automerged on a branch by the shared default preset, so the automation this role needs is in place without it.",
+    "Should AnonymousOverflow ever start publishing versioned images and this role pin one, revisit: it is stateless - it keeps no database and writes nothing, its only persistence is a cookie in the visitor's browser, and the role runs it with a read-only root filesystem - so a patch bump carries no migration risk, and the Molecule `default` scenario does run the image the role names and reads the version and every configured value back out of the running process. The evidence for automerging patch bumps would be there."
+  ],
   "extends": [
     "github>mother-of-all-self-hosting/renovate-config#v1.0.0"
   ]
