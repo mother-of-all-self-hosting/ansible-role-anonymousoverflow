@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 Slavi Pantaleev
 # SPDX-FileCopyrightText: 2026 spatterlight
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
@@ -5,21 +6,41 @@
 ---
 name: molecule
 
-on: [push, pull_request]  # yamllint disable-line rule:truthy
+on:  # yamllint disable-line rule:truthy
+  push:
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
+      - "CHANGELOG.md"
+      - "LICENSE"
+      - "LICENSES/**"
+      - "REUSE.toml"
+  pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
+      - "CHANGELOG.md"
+      - "LICENSE"
+      - "LICENSES/**"
+      - "REUSE.toml"
+  workflow_dispatch:
 
 jobs:
   molecule:
-    name: Run Molecule scenario '${{ matrix.scenario }}' on ${{ matrix.distro }}
+    name: Run Molecule scenario 'default' on ${{ matrix.distro }}
     runs-on: ubuntu-latest
+
+    # Same-repository pull requests already run via the push event;
+    # run pull_request jobs only for pull requests from forks.
+    if: >-
+      github.event_name != 'pull_request'
+      || github.event.pull_request.head.repo.full_name != github.repository
 
     strategy:
       matrix:
         distro:
           - ubuntu2604
           - debian13
-        scenario:
-          - default
-          - default-selfbuild
       fail-fast: false
 
     env:
@@ -48,8 +69,125 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.ansible/collections
-          key: ansible-collections-${{ hashFiles('anonymousoverflow/molecule/default/requirements.yml') }}
+          key: ansible-collections-${{ hashFiles('anonymousoverflow/molecule/*/requirements.yml') }}
 
       - name: Run Molecule
         working-directory: anonymousoverflow
-        run: molecule test --scenario-name ${{ matrix.scenario }}
+        run: molecule test --scenario-name default
+
+  # The self-build scenario compiles AnonymousOverflow from source, which is
+  # several minutes of runner time for a path that only changes when the version
+  # being built, the tasks doing the building, or the scenario itself changes.
+  # So it is gated on exactly that, and can always be asked for by hand through
+  # `workflow_dispatch`.
+  #
+  # Note that `anonymousoverflow_version` is the literal `release` and Renovate
+  # has nothing to bump it to (see bin/compute-next-tag.sh), so in practice this
+  # gate opens for changes to the role rather than for version bumps - which is
+  # why it looks at more than the version line.
+  selfbuild-gate:
+    name: Decide whether the self-build scenario has anything to test
+    runs-on: ubuntu-latest
+
+    if: >-
+      github.event_name != 'pull_request'
+      || github.event.pull_request.head.repo.full_name != github.repository
+
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Decide
+        id: decide
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -eu
+
+          if [ "$EVENT_NAME" = 'workflow_dispatch' ]; then
+            echo 'Asked for by hand'
+            echo 'run=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # On a branch, everything since it left the default branch. On the
+          # default branch itself, the commit that was just pushed.
+          base="$(git merge-base "origin/$DEFAULT_BRANCH" HEAD || true)"
+          if [ -z "$base" ] || [ "$base" = "$(git rev-parse HEAD)" ]; then
+            base="$(git rev-parse HEAD^ 2>/dev/null || true)"
+          fi
+
+          if [ -z "$base" ]; then
+            echo 'No baseline to compare against, so running to be safe'
+            echo 'run=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if git diff --name-only "$base" HEAD \
+            | grep -qE '^(tasks/install[.]yml|molecule/default-selfbuild/)'; then
+            echo 'The self-building tasks or the scenario itself changed'
+            echo 'run=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if git diff -U0 "$base" HEAD -- defaults/main.yml \
+            | grep -qE '^[+-][A-Za-z0-9_]+_version:'; then
+            echo 'A version in defaults/main.yml changed'
+            echo 'run=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo 'Nothing the self-build scenario tests has changed'
+          echo 'run=false' >> "$GITHUB_OUTPUT"
+
+  molecule-selfbuild:
+    name: Run Molecule scenario 'default-selfbuild' on ${{ matrix.distro }}
+    runs-on: ubuntu-latest
+
+    needs: selfbuild-gate
+    if: needs.selfbuild-gate.outputs.run == 'true'
+
+    strategy:
+      matrix:
+        distro:
+          - ubuntu2604
+          - debian13
+      fail-fast: false
+
+    env:
+      MOLECULE_DISTRO: ${{ matrix.distro }}
+      PY_COLORS: "1"
+      ANSIBLE_FORCE_COLOR: "1"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: anonymousoverflow
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: anonymousoverflow/.python-version
+          cache: pip
+          cache-dependency-path: anonymousoverflow/molecule/requirements.txt
+
+      - name: Install Python dependencies
+        working-directory: anonymousoverflow
+        run: pip install -r molecule/requirements.txt
+
+      - name: Cache Ansible collections
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.ansible/collections
+          key: ansible-collections-${{ hashFiles('anonymousoverflow/molecule/*/requirements.yml') }}
+
+      - name: Run Molecule
+        working-directory: anonymousoverflow
+        run: molecule test --scenario-name default-selfbuild
