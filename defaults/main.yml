@@ -60,7 +60,16 @@ anonymousoverflow_container_network_deletion_enabled: true
 # Takes an "<ip>:<port>" or "<port>" value (e.g. "127.0.0.1:2586"), or empty string to not expose.
 anonymousoverflow_container_http_host_bind_port: ""
 
-# The port number in the container
+# The port number in the container.
+#
+# This is passed to AnonymousOverflow as the `PORT` environment variable (see `../templates/env.j2`),
+# so that the process really does listen on it - the published port and the Traefik route are both
+# derived from this value as well.
+#
+# Note that the container image's own `HEALTHCHECK` is hardcoded to `http://localhost:8080/healthz`,
+# so changing this away from `8080` makes Docker report the container as unhealthy. Nothing in this
+# role acts on that health status, and the healthcheck reports unhealthy whenever StackOverflow is
+# unreachable anyway, so it says little about the container regardless of the port.
 anonymousoverflow_container_http_port: 8080
 
 # A list of additional container networks that the container would be connected to.
