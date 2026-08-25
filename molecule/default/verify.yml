@@ -166,11 +166,18 @@
     # This is checked before anything is probed over HTTP, because a process
     # that is not listening where the role published and routed to would
     # otherwise show up as a probe timing out three minutes later.
-    - name: Read what AnonymousOverflow announced on startup
+    #
+    # The unit is `Type=simple`, so it reads `active` from the moment
+    # `docker start` is invoked - well before the process inside has got as far
+    # as binding anything. Hence the wait.
+    - name: Wait for AnonymousOverflow to announce where it listens (up to 60s)
       ansible.builtin.command:
         cmd: journalctl --no-pager --unit anonymousoverflow.service
       register: anonymousoverflow_journal
       changed_when: false
+      until: anonymousoverflow_journal.stdout is search('Listening on 0[.]0[.]0[.]0:')
+      retries: 30
+      delay: 2
 
     # Only the most recent announcement counts. The journal keeps every start
     # the unit has ever had, so a converge that changed the port would leave the
