@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2018-2025 Slavi Pantaleev
+SPDX-FileCopyrightText: 2018-2026 Slavi Pantaleev
 SPDX-FileCopyrightText: 2019-2022 Aaron Raimist
 SPDX-FileCopyrightText: 2019-2023 MDAD project contributors
 SPDX-FileCopyrightText: 2023 QEDeD
@@ -47,11 +47,24 @@ Currently these testing scenarios are available:
 
 ### `default`
 
-Tests a standard AnonymousOverflow installation.
+Tests a standard AnonymousOverflow installation, installed from the published container image.
+
+It first establishes what an AnonymousOverflow the role has *not* configured does, so that everything it checks afterwards can be credited to the role rather than to the image:
+
+- the image on its own refuses to start at all — AnonymousOverflow panics without `APP_URL` and `JWT_SIGNING_SECRET`, so it cannot serve a wizard, a placeholder or anything else that a naive probe might mistake for a working install
+- an instance given only those two, with values of its own, listens on AnonymousOverflow's own default port, renders the `auto` theme, prefixes its redirects with its own `APP_URL`, rejects a token signed with the role's signing secret, and still rate limits
+
+Against that baseline it checks that every value the role configures reached the process — the port AnonymousOverflow announces on startup, the theme it renders into its home page, the base URL it prefixes a resolved shortened link with, the signing secret its image proxy verifies tokens against, and the rate limiter it was told to turn off — that the container runs the image `anonymousoverflow_version` names, that the container is shaped the way the systemd unit says (read-only, unprivileged, all capabilities dropped, with the role's additional volume mounted), and that it does not restart while all of that is being read.
+
+Nothing in it depends on StackOverflow answering. Two of the values above (`APP_URL` and `JWT_SIGNING_SECRET`) only show up on a surface that follows an outbound request, so the scenario stands a stub in StackOverflow's place: an nginx holding a certificate for `www.stackoverflow.com` signed by an authority created during preparation, which AnonymousOverflow reaches because the stub joins the role's own container network under the `www.stackoverflow.com` network alias, and trusts because `SSL_CERT_FILE` points Go's TLS trust at that authority. The stub returns nothing resembling real StackOverflow data and is not asked to.
 
 ### `default-selfbuild`
 
-Tests a standard AnonymousOverflow installation with self-building the container image.
+Tests an AnonymousOverflow installation that builds the container image from AnonymousOverflow's own `Dockerfile` rather than pulling it.
+
+It deliberately does not repeat the `default` scenario's work. What it checks is what only it can: that the running image was built here (it carries no repository digest) under the self-build name, that the checkout it was built from sits on the ref `anonymousoverflow_version` names, and that the running process reports the version those sources compile into `config/version.go`.
+
+Because it compiles AnonymousOverflow from source, CI runs it only when the version being built, the tasks doing the building or the scenario itself changed — or on demand through the workflow's `workflow_dispatch` trigger.
 
 ## Running
 
