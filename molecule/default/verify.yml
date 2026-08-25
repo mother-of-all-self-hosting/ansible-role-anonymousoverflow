@@ -117,6 +117,44 @@
         anonymousoverflow_container: "{{ (anonymousoverflow_container_raw.stdout | from_json)[0] }}"
 
     # ------------------------------------------------------------------
+    # The container is shaped the way the role's unit file says
+    # ------------------------------------------------------------------
+
+    - name: Assert the AnonymousOverflow container is hardened and wired up as the role specifies
+      vars:
+        anonymousoverflow_verify_ca_mount: >-
+          {{
+            anonymousoverflow_container.Mounts
+            | selectattr('Destination', 'eq', anonymousoverflow_molecule_ca_path_in_container)
+            | list
+          }}
+      ansible.builtin.assert:
+        that:
+          - anonymousoverflow_container.HostConfig.ReadonlyRootfs
+          - anonymousoverflow_container.HostConfig.CapDrop == ['ALL']
+          - anonymousoverflow_container.Config.User == anonymousoverflow_uid ~ ':' ~ anonymousoverflow_gid
+          - anonymousoverflow_container.NetworkSettings.Networks.keys() | list == [anonymousoverflow_molecule_container_network]
+          # `anonymousoverflow_container_additional_volumes` was declared by the
+          # role but never rendered into the unit file, so this is what keeps
+          # the mount the scenario depends on from silently disappearing again.
+          - anonymousoverflow_verify_ca_mount | length == 1
+          - anonymousoverflow_verify_ca_mount[0].Source == anonymousoverflow_molecule_ca_path
+          - not anonymousoverflow_verify_ca_mount[0].RW
+        fail_msg: >-
+          The AnonymousOverflow container is not shaped as the unit file
+          specifies: read-only rootfs={{ anonymousoverflow_container.HostConfig.ReadonlyRootfs }},
+          dropped capabilities={{ anonymousoverflow_container.HostConfig.CapDrop }},
+          user={{ anonymousoverflow_container.Config.User }},
+          networks={{ anonymousoverflow_container.NetworkSettings.Networks.keys() | list }},
+          mounts={{ anonymousoverflow_container.Mounts }}
+        success_msg: >-
+          The AnonymousOverflow container runs read-only as
+          {{ anonymousoverflow_container.Config.User }} with all capabilities
+          dropped, on the {{ anonymousoverflow_molecule_container_network }}
+          network, with the role's additional volume mounted read-only at
+          {{ anonymousoverflow_molecule_ca_path_in_container }}
+
+    # ------------------------------------------------------------------
     # Two image-proxy tokens, to be offered to everything below
     # ------------------------------------------------------------------
 
@@ -493,44 +531,6 @@
           that tag points at, and the process inside it reports itself as
           AnonymousOverflow {{ anonymousoverflow_reported_version }} on both
           /version and its home page
-
-    # ------------------------------------------------------------------
-    # The container is shaped the way the role's unit file says
-    # ------------------------------------------------------------------
-
-    - name: Assert the AnonymousOverflow container is hardened and wired up as the role specifies
-      vars:
-        anonymousoverflow_verify_ca_mount: >-
-          {{
-            anonymousoverflow_container.Mounts
-            | selectattr('Destination', 'eq', anonymousoverflow_molecule_ca_path_in_container)
-            | list
-          }}
-      ansible.builtin.assert:
-        that:
-          - anonymousoverflow_container.HostConfig.ReadonlyRootfs
-          - anonymousoverflow_container.HostConfig.CapDrop == ['ALL']
-          - anonymousoverflow_container.Config.User == anonymousoverflow_uid ~ ':' ~ anonymousoverflow_gid
-          - anonymousoverflow_container.NetworkSettings.Networks.keys() | list == [anonymousoverflow_molecule_container_network]
-          # `anonymousoverflow_container_additional_volumes` was declared by the
-          # role but never rendered into the unit file, so this is what keeps
-          # the mount the scenario depends on from silently disappearing again.
-          - anonymousoverflow_verify_ca_mount | length == 1
-          - anonymousoverflow_verify_ca_mount[0].Source == anonymousoverflow_molecule_ca_path
-          - not anonymousoverflow_verify_ca_mount[0].RW
-        fail_msg: >-
-          The AnonymousOverflow container is not shaped as the unit file
-          specifies: read-only rootfs={{ anonymousoverflow_container.HostConfig.ReadonlyRootfs }},
-          dropped capabilities={{ anonymousoverflow_container.HostConfig.CapDrop }},
-          user={{ anonymousoverflow_container.Config.User }},
-          networks={{ anonymousoverflow_container.NetworkSettings.Networks.keys() | list }},
-          mounts={{ anonymousoverflow_container.Mounts }}
-        success_msg: >-
-          The AnonymousOverflow container runs read-only as
-          {{ anonymousoverflow_container.Config.User }} with all capabilities
-          dropped, on the {{ anonymousoverflow_molecule_container_network }}
-          network, with the role's additional volume mounted read-only at
-          {{ anonymousoverflow_molecule_ca_path_in_container }}
 
     # ------------------------------------------------------------------
     # Nothing was quietly restarting while all of that was being checked
