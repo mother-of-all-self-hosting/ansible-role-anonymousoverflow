@@ -117,6 +117,14 @@
       ansible.builtin.set_fact:
         anonymousoverflow_container: "{{ (anonymousoverflow_container_raw.stdout | from_json)[0] }}"
 
+    # The container's own address on the role's container network. Probing this
+    # rather than the published port is what makes a claim about the port the
+    # process bound, rather than about the mapping the unit put in front of it.
+    - name: Note the container's address on the role's container network
+      ansible.builtin.set_fact:
+        anonymousoverflow_verify_container_ip: >-
+          {{ anonymousoverflow_container.NetworkSettings.Networks[anonymousoverflow_molecule_container_network].IPAddress }}
+
     # ------------------------------------------------------------------
     # The container is shaped the way the role's unit file says
     # ------------------------------------------------------------------
@@ -159,48 +167,51 @@
     # The process listens where the role said it should
     # ------------------------------------------------------------------
 
-    # AnonymousOverflow announces the address it binds on startup. The unit runs
-    # the container with `--log-driver=none` and `docker start --attach`, so that
-    # line arrives in the journal rather than in `docker logs`.
+    # Asked of the container's own address on the container network rather than
+    # of the port the unit published, so that the answer is about the port
+    # AnonymousOverflow bound rather than about the mapping in front of it.
     #
-    # This is checked before anything is probed over HTTP, because a process
-    # that is not listening where the role published and routed to would
-    # otherwise show up as a probe timing out three minutes later.
-    #
-    # The unit is `Type=simple`, so it reads `active` from the moment
-    # `docker start` is invoked - well before the process inside has got as far
-    # as binding anything. Hence the wait.
-    - name: Wait for AnonymousOverflow to announce where it listens (up to 60s)
-      ansible.builtin.command:
-        cmd: journalctl --no-pager --unit anonymousoverflow.service
-      register: anonymousoverflow_journal
-      changed_when: false
-      until: anonymousoverflow_journal.stdout is search('Listening on 0[.]0[.]0[.]0:')
-      retries: 30
-      delay: 2
+    # `failed_when: false` leaves the verdict to the assertion below: a process
+    # that came up on the wrong port should be reported as the wrong port, not
+    # as a probe that timed out.
+    - name: Wait for the container to answer on the port the role configured (up to 3m)
+      ansible.builtin.uri:
+        url: "http://{{ anonymousoverflow_verify_container_ip }}:{{ anonymousoverflow_container_http_port }}/version"
+        return_content: true
+        follow_redirects: none
+        status_code: [200, -1]
+      register: anonymousoverflow_configured_port
+      until: anonymousoverflow_configured_port.status == 200
+      retries: 36
+      delay: 5
+      failed_when: false
 
-    # Only the most recent announcement counts. The journal keeps every start
-    # the unit has ever had, so a converge that changed the port would leave the
-    # old announcement behind and an assertion over the whole journal would keep
-    # reading it.
+    - name: Ask the container whether anything answers on AnonymousOverflow's own default port
+      ansible.builtin.uri:
+        url: "http://{{ anonymousoverflow_verify_container_ip }}:{{ anonymousoverflow_verify_upstream_default_port }}/version"
+        follow_redirects: none
+        status_code: [200, -1]
+      register: anonymousoverflow_default_port
+
     - name: Assert AnonymousOverflow listens on the port the role configured
-      vars:
-        anonymousoverflow_listen_lines: "{{ anonymousoverflow_journal.stdout_lines | select('search', 'Listening on 0[.]0[.]0[.]0:') | list }}"
-        anonymousoverflow_listen_line: "{{ anonymousoverflow_listen_lines | last | default('', true) }}"
       ansible.builtin.assert:
         that:
-          - anonymousoverflow_listen_lines | length > 0
-          - "'Listening on 0.0.0.0:' ~ anonymousoverflow_container_http_port ~ '.' in anonymousoverflow_listen_line"
-          - "'Listening on 0.0.0.0:' ~ anonymousoverflow_verify_upstream_default_port ~ '.' not in anonymousoverflow_listen_line"
+          - anonymousoverflow_configured_port.status == 200
+          - anonymousoverflow_default_port.status != 200
         fail_msg: >-
           AnonymousOverflow is not listening on
           {{ anonymousoverflow_container_http_port }}, which is what
           `anonymousoverflow_container_http_port` published and routed to:
-          {{ anonymousoverflow_listen_lines }}
+          port {{ anonymousoverflow_container_http_port }} answered
+          {{ anonymousoverflow_configured_port.status }}, port
+          {{ anonymousoverflow_verify_upstream_default_port }} answered
+          {{ anonymousoverflow_default_port.status }}
         success_msg: >-
-          AnonymousOverflow announced that it listens on
-          0.0.0.0:{{ anonymousoverflow_container_http_port }}, the port
-          `anonymousoverflow_container_http_port` names
+          AnonymousOverflow answers on
+          {{ anonymousoverflow_verify_container_ip }}:{{ anonymousoverflow_container_http_port }},
+          the port `anonymousoverflow_container_http_port` names, and nothing
+          answers on its own default of
+          {{ anonymousoverflow_verify_upstream_default_port }}
 
     # ------------------------------------------------------------------
     # Two image-proxy tokens, to be offered to everything below
@@ -618,7 +629,7 @@
           - "unconfigured image: exit {{ anonymousoverflow_control_bare.rc }}, {{ anonymousoverflow_control_bare.stderr_lines | first | default('') }}"
           - "unconfigured instance: theme={{ anonymousoverflow_control_home.content | regex_search('data-theme=\"[^\"]*\"') }}, redirect={{ anonymousoverflow_control_shortlink.location }}, image proxy={{ anonymousoverflow_control_proxy.status }}"
           - "configured: theme={{ anonymousoverflow_home.content | regex_search('data-theme=\"[^\"]*\"') }}, redirect={{ anonymousoverflow_shortlink.location }}, image proxy={{ anonymousoverflow_proxy_accepted.status }}"
-          - "listening: {{ anonymousoverflow_journal.stdout_lines | select('search', 'Listening on') | list | last | default('') }}"
+          - "listening: {{ anonymousoverflow_verify_container_ip }}:{{ anonymousoverflow_container_http_port }} answered {{ anonymousoverflow_configured_port.status }}, port {{ anonymousoverflow_verify_upstream_default_port }} answered {{ anonymousoverflow_default_port.status }}"
           - "image: {{ anonymousoverflow_container.Config.Image }} ({{ anonymousoverflow_container.Image }}), process reports {{ anonymousoverflow_version_response.content | trim }}"
           - "container: read-only={{ anonymousoverflow_container.HostConfig.ReadonlyRootfs }}, user={{ anonymousoverflow_container.Config.User }}, capabilities dropped={{ anonymousoverflow_container.HostConfig.CapDrop }}"
           - "restarts: {{ anonymousoverflow_restarts_after.status.NRestarts }}"
