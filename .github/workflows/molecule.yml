@@ -191,7 +191,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.ansible/collections
-          key: ansible-collections-${{ hashFiles('anonymousoverflow/molecule/*/requirements.yml') }}
+          key: ansible-collections-${{ hashFiles('anonymousoverflow/molecule/default-selfbuild/requirements.yml') }}
 
       - name: Run Molecule
         working-directory: anonymousoverflow
