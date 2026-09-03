@@ -222,9 +222,9 @@
     - name: Show the AnonymousOverflow verification summary
       ansible.builtin.debug:
         msg:
-          - "systemd: anonymousoverflow.service is {{ anonymousoverflow_service.status.ActiveState }}"
-          - "image: {{ anonymousoverflow_container.Config.Image }} ({{ anonymousoverflow_container.Image }}), repository digests {{ anonymousoverflow_image.RepoDigests }}"
-          - "sources: {{ anonymousoverflow_verify_src_path }} on {{ anonymousoverflow_src_head.content | b64decode | trim }}"
-          - "process reports: {{ anonymousoverflow_version_response.content | trim }}"
-          - "theme: {{ anonymousoverflow_home.content | regex_search('data-theme=\"[^\"]*\"') }}"
-          - "restarts: {{ anonymousoverflow_restarts_after.status.NRestarts }}"
+          - "AnonymousOverflow systemd: {{ anonymousoverflow_service.status.ActiveState }}"
+          - "AnonymousOverflow image: {{ anonymousoverflow_container.Config.Image }} ({{ anonymousoverflow_container.Image }}), repository digests {{ anonymousoverflow_image.RepoDigests }}"
+          - "AnonymousOverflow restarts: {{ anonymousoverflow_restarts_after.status.NRestarts }}"
+          - "AnonymousOverflow sources: {{ anonymousoverflow_verify_src_path }} on {{ anonymousoverflow_src_head.content | b64decode | trim }}"
+          - "AnonymousOverflow process reports: {{ anonymousoverflow_version_response.content | trim }}"
+          - "AnonymousOverflow theme: {{ anonymousoverflow_home.content | regex_search('data-theme=\"[^\"]*\"') }}"

@@ -625,11 +625,11 @@
     - name: Show the AnonymousOverflow verification summary
       ansible.builtin.debug:
         msg:
-          - "systemd: anonymousoverflow.service is {{ anonymousoverflow_service.status.ActiveState }}"
-          - "unconfigured image: exit {{ anonymousoverflow_control_bare.rc }}, {{ anonymousoverflow_control_bare.stderr_lines | first | default('') }}"
-          - "unconfigured instance: theme={{ anonymousoverflow_control_home.content | regex_search('data-theme=\"[^\"]*\"') }}, redirect={{ anonymousoverflow_control_shortlink.location }}, image proxy={{ anonymousoverflow_control_proxy.status }}"
-          - "configured: theme={{ anonymousoverflow_home.content | regex_search('data-theme=\"[^\"]*\"') }}, redirect={{ anonymousoverflow_shortlink.location }}, image proxy={{ anonymousoverflow_proxy_accepted.status }}"
-          - "listening: {{ anonymousoverflow_verify_container_ip }}:{{ anonymousoverflow_container_http_port }} answered {{ anonymousoverflow_configured_port.status }}, port {{ anonymousoverflow_verify_upstream_default_port }} answered {{ anonymousoverflow_default_port.status }}"
-          - "image: {{ anonymousoverflow_container.Config.Image }} ({{ anonymousoverflow_container.Image }}), process reports {{ anonymousoverflow_version_response.content | trim }}"
-          - "container: read-only={{ anonymousoverflow_container.HostConfig.ReadonlyRootfs }}, user={{ anonymousoverflow_container.Config.User }}, capabilities dropped={{ anonymousoverflow_container.HostConfig.CapDrop }}"
-          - "restarts: {{ anonymousoverflow_restarts_after.status.NRestarts }}"
+          - "AnonymousOverflow systemd: {{ anonymousoverflow_service.status.ActiveState }}"
+          - "AnonymousOverflow image: {{ anonymousoverflow_container.Config.Image }} ({{ anonymousoverflow_container.Image }}), process reports {{ anonymousoverflow_version_response.content | trim }}"
+          - "AnonymousOverflow restarts: {{ anonymousoverflow_restarts_after.status.NRestarts }}"
+          - "AnonymousOverflow unconfigured image: exit {{ anonymousoverflow_control_bare.rc }}, {{ anonymousoverflow_control_bare.stderr_lines | first | default('') }}"
+          - "AnonymousOverflow unconfigured instance: theme={{ anonymousoverflow_control_home.content | regex_search('data-theme=\"[^\"]*\"') }}, redirect={{ anonymousoverflow_control_shortlink.location }}, image proxy={{ anonymousoverflow_control_proxy.status }}"
+          - "AnonymousOverflow configured: theme={{ anonymousoverflow_home.content | regex_search('data-theme=\"[^\"]*\"') }}, redirect={{ anonymousoverflow_shortlink.location }}, image proxy={{ anonymousoverflow_proxy_accepted.status }}"
+          - "AnonymousOverflow listening: {{ anonymousoverflow_verify_container_ip }}:{{ anonymousoverflow_container_http_port }} answered {{ anonymousoverflow_configured_port.status }}, port {{ anonymousoverflow_verify_upstream_default_port }} answered {{ anonymousoverflow_default_port.status }}"
+          - "AnonymousOverflow container: read-only={{ anonymousoverflow_container.HostConfig.ReadonlyRootfs }}, user={{ anonymousoverflow_container.Config.User }}, capabilities dropped={{ anonymousoverflow_container.HostConfig.CapDrop }}"
