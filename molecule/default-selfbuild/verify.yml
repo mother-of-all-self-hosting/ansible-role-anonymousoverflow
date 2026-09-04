@@ -12,7 +12,7 @@
 # process matching the sources it was built out of. The thorough
 # configuration-reach and negative-control work lives in the `default` scenario
 # and is deliberately not repeated.
-- name: Verify a self-built AnonymousOverflow
+- name: Verify self-built AnonymousOverflow
   hosts: all
   become: true
   gather_facts: false
