@@ -72,13 +72,10 @@
     anonymousoverflow_verify_proxied_image_url: http://www.stackoverflow.com/molecule-image
 
   tasks:
-    # Role defaults are not in scope in a verify play, but the version the role
-    # installs lives in them and is what the running container is checked
-    # against below. Only leaf literals may be read out of this - anything
-    # Jinja-derived would be resolved against an empty namespace. Loading it
-    # under a name of its own also keeps it from outranking the scenario's own
-    # group_vars, which is what the assertions further down compare against.
-    - name: Load the AnonymousOverflow role defaults
+    # The role is not included in this playbook, so its defaults are not in
+    # scope. Reading defaults/main.yml directly ties the version assertion
+    # below.
+    - name: Load the role defaults
       ansible.builtin.include_vars:
         file: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}/defaults/main.yml"
         name: anonymousoverflow_defaults

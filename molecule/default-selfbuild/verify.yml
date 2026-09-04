@@ -22,9 +22,10 @@
     anonymousoverflow_verify_src_path: "{{ anonymousoverflow_molecule_base_path }}/docker-src"
 
   tasks:
-    # Only leaf literals may be read out of this - anything Jinja-derived would
-    # be resolved against an empty namespace.
-    - name: Load the AnonymousOverflow role defaults
+    # The role is not included in this playbook, so its defaults are not in
+    # scope. Reading defaults/main.yml directly ties the version assertion
+    # below.
+    - name: Load the role defaults
       ansible.builtin.include_vars:
         file: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}/defaults/main.yml"
         name: anonymousoverflow_defaults
