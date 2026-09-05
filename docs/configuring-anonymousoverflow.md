@@ -76,10 +76,6 @@ See its [`docker-compose.example.yml`](https://github.com/httpjamesm/AnonymousOv
 
 Changing it works, but note that the container image's own `HEALTHCHECK` is hardcoded to `http://localhost:8080/healthz`, so Docker will report the container as unhealthy. Nothing in this role acts on that health status — and that healthcheck reports unhealthy whenever StackOverflow is unreachable from the server anyway, so it says little about the container regardless of the port.
 
-### A note on versions
-
-AnonymousOverflow publishes only one container image tag, `release`, which is what `anonymousoverflow_version` is set to. The project does cut git tags, but its release pipeline does not turn them into image tags, so there is no version to pin here and no version bump for this role to follow.
-
 ## Installing
 
 After configuring the playbook, run the installation command of your playbook as below:
