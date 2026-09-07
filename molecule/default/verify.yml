@@ -551,7 +551,7 @@
       register: anonymousoverflow_image_id
       changed_when: false
 
-    - name: Ask AnonymousOverflow which version it is
+    - name: Query the version of the running AnonymousOverflow
       ansible.builtin.uri:
         url: "{{ anonymousoverflow_verify_url }}/version"
         return_content: true

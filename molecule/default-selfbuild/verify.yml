@@ -137,7 +137,7 @@
         src: "{{ anonymousoverflow_verify_src_path }}/config/version.go"
       register: anonymousoverflow_src_version_file
 
-    - name: Ask AnonymousOverflow which version it is
+    - name: Query the version of the running AnonymousOverflow
       ansible.builtin.uri:
         url: "{{ anonymousoverflow_verify_url }}/version"
         return_content: true
