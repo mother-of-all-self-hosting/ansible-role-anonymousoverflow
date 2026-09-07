@@ -104,13 +104,13 @@
         cmd: journalctl -xeu anonymousoverflow.service
       changed_when: false
 
-    - name: Read the AnonymousOverflow container the role created
+    - name: Inspect AnonymousOverflow container
       ansible.builtin.command:
         cmd: "docker container inspect {{ anonymousoverflow_molecule_container }}"
       register: anonymousoverflow_container_raw
       changed_when: false
 
-    - name: Make sense of the AnonymousOverflow container
+    - name: Parse the AnonymousOverflow container definition
       ansible.builtin.set_fact:
         anonymousoverflow_container: "{{ (anonymousoverflow_container_raw.stdout | from_json)[0] }}"
 
