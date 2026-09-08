@@ -311,7 +311,7 @@
             argv:
               - docker
               - run
-              - --detach
+              - -d
               - --rm
               - --name
               - "{{ anonymousoverflow_verify_control_container }}"

@@ -43,7 +43,7 @@
         argv:
           - docker
           - run
-          - --detach
+          - -d
           - --name
           - "{{ anonymousoverflow_molecule_stub_container }}"
           - --network
