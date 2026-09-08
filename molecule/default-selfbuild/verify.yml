@@ -57,7 +57,7 @@
     - name: Retrieve the AnonymousOverflow systemd service log for debugging
       when: anonymousoverflow_debug_service_enabled | bool
       ansible.builtin.command:
-        cmd: journalctl -xeu anonymousoverflow.service
+        cmd: journalctl --no-pager --output=cat --unit=anonymousoverflow.service
       changed_when: false
 
     - name: Wait for AnonymousOverflow to answer (up to 3m)
