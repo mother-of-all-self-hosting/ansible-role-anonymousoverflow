@@ -563,11 +563,11 @@
         return_content: true
         follow_redirects: none
         status_code: [200]
-      register: anonymousoverflow_version_response
+      register: anonymousoverflow_version_reported
 
     - name: Assert the AnonymousOverflow container runs the image the role names
       vars:
-        anonymousoverflow_reported_version: "{{ anonymousoverflow_version_response.content | trim }}"
+        anonymousoverflow_reported_version: "{{ anonymousoverflow_version_reported.content | trim }}"
       ansible.builtin.assert:
         that:
           - anonymousoverflow_container.Config.Image | split(':') | last == anonymousoverflow_defaults.anonymousoverflow_version
@@ -628,8 +628,8 @@
     - name: Show the AnonymousOverflow verification summary
       ansible.builtin.debug:
         msg:
-          - "AnonymousOverflow systemd: {{ anonymousoverflow_service.status.ActiveState }}"
-          - "AnonymousOverflow image: {{ anonymousoverflow_container.Config.Image }} ({{ anonymousoverflow_container.Image }}), process reports {{ anonymousoverflow_version_response.content | trim }}"
+          - "AnonymousOverflow systemd: {{ anonymousoverflow_service.status.ActiveState }}, {{ anonymousoverflow_restarts_after.status.NRestarts }} restart(s)"
+          - "AnonymousOverflow image: {{ anonymousoverflow_container.Config.Image }} ({{ anonymousoverflow_container.Image }}), process reports {{ anonymousoverflow_version_reported.content | trim }}"
           - "AnonymousOverflow restarts: {{ anonymousoverflow_restarts_after.status.NRestarts }}"
           - "AnonymousOverflow unconfigured image: exit {{ anonymousoverflow_control_bare.rc }}, {{ anonymousoverflow_control_bare.stderr_lines | first | default('') }}"
           - "AnonymousOverflow unconfigured instance: theme={{ anonymousoverflow_control_home.content | regex_search('data-theme=\"[^\"]*\"') }}, redirect={{ anonymousoverflow_control_shortlink.location }}, image proxy={{ anonymousoverflow_control_proxy.status }}"

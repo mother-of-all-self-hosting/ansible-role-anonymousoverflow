@@ -149,13 +149,13 @@
         return_content: true
         follow_redirects: none
         status_code: [200]
-      register: anonymousoverflow_version_response
+      register: anonymousoverflow_version_reported
 
     - name: Assert the running AnonymousOverflow is the sources the role built
       vars:
         anonymousoverflow_src_ref: "{{ anonymousoverflow_src_head.content | b64decode | trim }}"
         anonymousoverflow_src_version: "{{ (anonymousoverflow_src_version_file.content | b64decode | regex_search('Version\\s*=\\s*\"([^\"]+)\"', '\\1'))[0] }}"
-        anonymousoverflow_reported_version: "{{ anonymousoverflow_version_response.content | trim }}"
+        anonymousoverflow_reported_version: "{{ anonymousoverflow_version_reported.content | trim }}"
       ansible.builtin.assert:
         that:
           # Quoted as a whole, so that the `: ` inside does not turn this list
@@ -233,5 +233,5 @@
           - "AnonymousOverflow image: {{ anonymousoverflow_container.Config.Image }} ({{ anonymousoverflow_container.Image }}), repository digests {{ anonymousoverflow_image.RepoDigests }}"
           - "AnonymousOverflow restarts: {{ anonymousoverflow_restarts_after.status.NRestarts }}"
           - "AnonymousOverflow sources: {{ anonymousoverflow_verify_src_path }} on {{ anonymousoverflow_src_head.content | b64decode | trim }}"
-          - "AnonymousOverflow process reports: {{ anonymousoverflow_version_response.content | trim }}"
+          - "AnonymousOverflow process reports: {{ anonymousoverflow_version_reported.content | trim }}"
           - "AnonymousOverflow theme: {{ anonymousoverflow_home.content | regex_search('data-theme=\"[^\"]*\"') }}"
