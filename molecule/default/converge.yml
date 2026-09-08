@@ -32,11 +32,7 @@
   tasks:
     - name: Check whether the StackOverflow stub is already running
       ansible.builtin.command:
-        argv:
-          - docker
-          - container
-          - inspect
-          - "{{ anonymousoverflow_molecule_stub_container }}"
+        cmd: "docker container inspect {{ anonymousoverflow_molecule_stub_container }}"
       register: anonymousoverflow_molecule_stub_state
       changed_when: false
       failed_when: false
