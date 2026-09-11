@@ -71,6 +71,9 @@
     # stub's constant string.
     anonymousoverflow_verify_proxied_image_url: http://www.stackoverflow.com/molecule-image
 
+    anonymousoverflow_verify_units:
+      - anonymousoverflow.service
+
   tasks:
     - name: Verify that AnonymousOverflow works
       block:
@@ -86,13 +89,14 @@
         # The unit is up
         # ------------------------------------------------------------------
 
-        - name: Wait for the AnonymousOverflow systemd service to become active (up to 180s)
+        - name: Wait for the AnonymousOverflow systemd services to become active (up to 180s each)
           ansible.builtin.systemd_service:
-            name: anonymousoverflow.service
-          register: anonymousoverflow_service
-          until: anonymousoverflow_service.status.ActiveState == 'active'
+            name: "{{ item }}"
+          register: anonymousoverflow_services
+          until: anonymousoverflow_services.status.ActiveState == 'active'
           retries: 36
           delay: 5
+          loop: "{{ anonymousoverflow_verify_units }}"
           # So that giving up is reported by the assertion below rather than as a
           # wall of systemd unit properties.
           failed_when: false
@@ -100,17 +104,20 @@
         # `Restart=always` in the systemd unit means that even a container which crashes
         # and gets restarted reads as active here, so this is a precondition rather than
         # a result.
-        - name: Assert the AnonymousOverflow systemd service is active
+        - name: Assert the AnonymousOverflow systemd services are active
           ansible.builtin.assert:
-            that: anonymousoverflow_service.status.ActiveState == 'active'
-            fail_msg: "anonymousoverflow.service is not active ({{ anonymousoverflow_service.status.ActiveState }})"
-            success_msg: "anonymousoverflow.service is active"
+            that: anonymousoverflow_services.results | map(attribute='status.ActiveState') | unique | list == ['active']
+            fail_msg: >-
+              Not every service is active:
+              {{ dict(anonymousoverflow_verify_units | zip(anonymousoverflow_services.results | map(attribute='status.ActiveState'))) }}
+            success_msg: "Every systemd service is active"
 
-        - name: Retrieve the AnonymousOverflow systemd service log for debugging
+        - name: Retrieve the AnonymousOverflow systemd services log for debugging
           when: anonymousoverflow_debug_service_enabled | bool
           ansible.builtin.command:
-            cmd: journalctl --no-pager --output=cat --unit=anonymousoverflow.service
+            cmd: "journalctl --no-pager --output=cat --unit={{ item }}"
           changed_when: false
+          loop: "{{ anonymousoverflow_verify_units }}"
 
         - name: Inspect AnonymousOverflow container
           ansible.builtin.command:
@@ -622,7 +629,7 @@
         - name: Show the AnonymousOverflow verification summary
           ansible.builtin.debug:
             msg:
-              - "AnonymousOverflow systemd: {{ anonymousoverflow_service.status.ActiveState }}, {{ anonymousoverflow_restarts_after.status.NRestarts }} restart(s)"
+              - "AnonymousOverflow systemd: {% for unit, state in anonymousoverflow_verify_units | zip(anonymousoverflow_services.results | map(attribute='status.ActiveState')) %}{{ unit }} ({{ state }}){% if not loop.last %}, {% endif %}{% endfor %}"
               - "AnonymousOverflow image: {{ anonymousoverflow_container.Config.Image }} ({{ anonymousoverflow_container.Image }}), process reports {{ anonymousoverflow_version_reported.content | trim }}"
               - "AnonymousOverflow restarts: {{ anonymousoverflow_restarts_after.status.NRestarts }}"
               - "AnonymousOverflow unconfigured image: exit {{ anonymousoverflow_control_bare.rc }}, {{ anonymousoverflow_control_bare.stderr_lines | first | default('') }}"
