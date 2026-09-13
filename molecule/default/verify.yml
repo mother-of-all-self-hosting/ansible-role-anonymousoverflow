@@ -641,6 +641,7 @@
               - "AnonymousOverflow configured: theme={{ anonymousoverflow_home.content | regex_search('data-theme=\"[^\"]*\"') }}, redirect={{ anonymousoverflow_shortlink.location }}, image proxy={{ anonymousoverflow_proxy_accepted.status }}"
               - "AnonymousOverflow listening: {{ anonymousoverflow_container_ip }}:{{ anonymousoverflow_container_http_port }} answered {{ anonymousoverflow_configured_port.status }}, port {{ anonymousoverflow_verify_upstream_default_port }} answered {{ anonymousoverflow_default_port.status }}"
               - "AnonymousOverflow container: read-only={{ anonymousoverflow_container.HostConfig.ReadonlyRootfs }}, user={{ anonymousoverflow_container.Config.User }}, capabilities dropped={{ anonymousoverflow_container.HostConfig.CapDrop }}"
+
       rescue:
         # Whatever went wrong, the reason is almost always in the systemd service log.
         - name: Retrieve the AnonymousOverflow systemd service log

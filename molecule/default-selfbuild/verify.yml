@@ -249,6 +249,7 @@
               - "AnonymousOverflow sources: {{ anonymousoverflow_verify_src_path }} on {{ anonymousoverflow_src_head.content | b64decode | trim }}"
               - "AnonymousOverflow process reports: {{ anonymousoverflow_version_reported.content | trim }}"
               - "AnonymousOverflow theme: {{ anonymousoverflow_home.content | regex_search('data-theme=\"[^\"]*\"') }}"
+
       rescue:
         # Whatever went wrong, the reason is almost always in the systemd service log.
         - name: Retrieve the AnonymousOverflow systemd service log
