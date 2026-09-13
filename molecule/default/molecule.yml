@@ -31,6 +31,7 @@ provisioner:
       all:
         # Helper variables
         anonymousoverflow_debug_service_enabled: false
+        anonymousoverflow_restarts_check_enabled: true
 
         # The container and network names the role derives from its identifier.
         # Role defaults are not in scope in every play, so they are spelled out.
