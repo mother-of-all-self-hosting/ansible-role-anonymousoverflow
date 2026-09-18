@@ -68,7 +68,7 @@ Take a look at:
 
 - [`defaults/main.yml`](../defaults/main.yml) for some variables that you can customize via your `vars.yml` file. You can override settings (even those that don't have dedicated playbook variables) using the `anonymousoverflow_environment_variables_additional_variables` variable
 
-See its [`docker-compose.example.yml`](https://github.com/httpjamesm/AnonymousOverflow/blob/main/docker-compose.example.yml) for a complete list of AnonymousOverflow's config options that you could put in `anonymousoverflow_environment_variables_additional_variables`. Options which AnonymousOverflow reads but which that file does not mention include `THEME` (the theme the instance serves, `auto` unless set) and `DISABLE_RATELIMIT` (AnonymousOverflow otherwise answers `429` after 30 requests a minute from the same address).
+See its [`docker-compose.example.yml`](https://github.com/httpjamesm/AnonymousOverflow/blob/main/docker-compose.example.yml) for a complete list of AnonymousOverflow's config options that you can put in `anonymousoverflow_environment_variables_additional_variables`. Options which AnonymousOverflow reads but which that file does not mention include `THEME` (the theme the instance serves, `auto` unless set) and `DISABLE_RATELIMIT` (AnonymousOverflow otherwise answers `429` after 30 requests a minute from the same address).
 
 ### A note on the container's port
 
