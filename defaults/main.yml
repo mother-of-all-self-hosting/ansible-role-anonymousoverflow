@@ -143,6 +143,12 @@ anonymousoverflow_container_extra_arguments: "{{ anonymousoverflow_container_ext
 anonymousoverflow_container_extra_arguments_auto: []
 anonymousoverflow_container_extra_arguments_custom: []
 
+# A list of extra arguments to pass to the process inside the container
+# Example: ['--SOME_ARGUMENT']
+anonymousoverflow_process_extra_arguments: "{{ anonymousoverflow_process_extra_arguments_auto + anonymousoverflow_process_extra_arguments_custom }}"
+anonymousoverflow_process_extra_arguments_auto: []
+anonymousoverflow_process_extra_arguments_custom: []
+
 # Specifies the value of the `X-XSS-Protection` header
 # Stops pages from loading when they detect reflected cross-site scripting (XSS) attacks.
 #
