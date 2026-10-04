@@ -94,10 +94,12 @@
           ansible.builtin.set_fact:
             anonymousoverflow_container: "{{ (anonymousoverflow_container_raw.stdout | from_json)[0] }}"
 
-        # A pulled image carries a repository digest; one that was only ever built
-        # locally does not. This is what separates this scenario from the `default`
-        # one - without it, a role that silently fell back to pulling the published
-        # image would pass here just as well.
+        # A pulled image carries the time upstream built it; one that was built
+        # locally was created during this test run. This is what separates this
+        # scenario from the `default` one - without it, a role that silently fell
+        # back to pulling the published image would pass here just as well.
+        # Repository digests cannot tell the two apart: Docker's containerd image
+        # store records one for local builds too.
         - name: Read the image the AnonymousOverflow container runs
           ansible.builtin.command:
             cmd: "docker image inspect {{ anonymousoverflow_container.Config.Image }}"
@@ -115,15 +117,15 @@
               # prefix - so this also fails if self-building silently did not happen.
               - anonymousoverflow_container.Config.Image == 'httpjamesm/anonymousoverflow:' ~ anonymousoverflow_defaults.anonymousoverflow_version
               - anonymousoverflow_container.Image == anonymousoverflow_image.Id
-              - anonymousoverflow_image.RepoDigests | length == 0
+              - (now(utc=true) - (anonymousoverflow_image.Created[:19] | to_datetime('%Y-%m-%dT%H:%M:%S'))).total_seconds() < 3600
             fail_msg: >-
               The container is not running an image that was built here: image
               {{ anonymousoverflow_container.Config.Image }}
-              ({{ anonymousoverflow_container.Image }}, repository digests
-              {{ anonymousoverflow_image.RepoDigests }})
+              ({{ anonymousoverflow_container.Image }}, created at
+              {{ anonymousoverflow_image.Created }})
             success_msg: >-
               The container runs {{ anonymousoverflow_container.Config.Image }},
-              which carries no repository digest - it was built from
+              which was created during this test run - it was built from
               AnonymousOverflow's Dockerfile here rather than pulled
 
         # ------------------------------------------------------------------
