@@ -26,9 +26,6 @@
     - name: Ensure Docker is installed for AnonymousOverflow Molecule tests preparation
       ansible.builtin.include_role:
         name: ansible-role-docker
-      vars:
-        docker_daemon_options:
-          storage-driver: vfs
 
     # ------------------------------------------------------------------
     # A stand-in for StackOverflow
