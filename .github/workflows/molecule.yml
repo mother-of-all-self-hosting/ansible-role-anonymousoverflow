@@ -31,7 +31,7 @@ permissions:
 jobs:
   molecule:
     name: Run Molecule scenario 'default' on ${{ matrix.distro }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
 
     # Same-repository pull requests already run via the push event;
     # run pull_request jobs only for pull requests from forks.
@@ -89,7 +89,7 @@ jobs:
   # why it looks at more than the version line.
   selfbuild-gate:
     name: Decide whether the self-build scenario has anything to test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
 
     if: >-
       github.event_name != 'pull_request'
@@ -157,7 +157,7 @@ jobs:
 
   molecule-selfbuild:
     name: Run Molecule scenario 'default-selfbuild' on ${{ matrix.distro }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
 
     needs: selfbuild-gate
     if: needs.selfbuild-gate.outputs.run == 'true'
