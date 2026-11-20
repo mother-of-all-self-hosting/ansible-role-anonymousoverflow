@@ -22,9 +22,6 @@
   with_items:
     - anonymousoverflow_uid
     - anonymousoverflow_gid
-    - anonymousoverflow_hostname
-    - anonymousoverflow_path_prefix
-    - anonymousoverflow_container_network
     - anonymousoverflow_environment_variable_jwt_signing_secret
 
 - name: Run if Traefik is enabled
